@@ -5,15 +5,15 @@ export const Footer = () => {
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-heading font-bold text-xs">W</span>
+              <span className="text-primary-foreground font-heading font-bold text-xs">AC</span>
             </div>
-            <span className="font-heading font-semibold text-foreground text-sm">Wekeza Platform</span>
+            <span className="font-heading font-semibold text-foreground text-sm">The Africa Cloud</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            Africa's Distributed Data & Intelligence Cloud
+            Built by Wekeza Bank — Africa's Distributed Data & Intelligence Cloud
           </p>
           <p className="text-xs text-muted-foreground">
-            © 2026 Wekeza. All rights reserved.
+            © 2026 The Africa Cloud. All rights reserved.
           </p>
         </div>
       </div>

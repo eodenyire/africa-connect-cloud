@@ -31,7 +31,7 @@ export const ApiShowcase = () => {
             <span className="w-3 h-3 rounded-full bg-destructive/60" />
             <span className="w-3 h-3 rounded-full bg-primary/40" />
             <span className="w-3 h-3 rounded-full bg-muted-foreground/20" />
-            <span className="ml-4 text-xs text-muted-foreground font-mono">api.wekeza.cloud</span>
+            <span className="ml-4 text-xs text-muted-foreground font-mono"><span className="ml-4 text-xs text-muted-foreground font-mono">api.africacloud.io</span></span>
           </div>
           <div className="p-6 space-y-1 font-mono text-sm">
             {apis.map((api, i) => (
