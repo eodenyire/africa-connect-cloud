@@ -29,7 +29,7 @@ export const Hero = () => {
             </h1>
 
             <p className="text-lg text-muted-foreground max-w-lg mb-10 leading-relaxed">
-              Edge-first. Offline-ready. Data sovereign. Wekeza is a distributed cloud platform 
+              Edge-first. Offline-ready. Data sovereign. The Africa Cloud is a distributed platform 
               built for African realities — low bandwidth, intermittent connectivity, and the need for speed.
             </p>
 
