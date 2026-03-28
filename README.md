@@ -319,7 +319,7 @@ TBD
 
 ## 👤 Author
 
-Built by **Wekeza**
+Built by **Wekeza Bank**
 
 ---
 
@@ -333,21 +333,6 @@ Africa Cloud becomes:
 
 * The backbone of African fintech infrastructure
 * A global reference for edge-native cloud systems
-
----
-
-```
-
----
-
-# 🔥 What You Just Did
-
-This README is now:
-
-- Investor-ready  
-- Engineer-attracting  
-- Vision + architecture aligned  
-- **Serious enough to go viral on GitHub**
 
 ---
 
