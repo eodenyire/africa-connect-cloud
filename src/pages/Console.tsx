@@ -1,0 +1,154 @@
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Cloud, Server, Database, HardDrive, Globe, Shield,
+  BarChart3, Settings, LogOut, Plus, Activity, Users,
+  Network, Cpu, ChevronRight,
+} from "lucide-react";
+
+const services = [
+  { icon: Server, name: "Compute", description: "Virtual machines & containers", count: 0, color: "text-primary" },
+  { icon: Database, name: "Databases", description: "Managed PostgreSQL, Redis, MongoDB", count: 0, color: "text-primary" },
+  { icon: HardDrive, name: "Storage", description: "Object & block storage", count: 0, color: "text-primary" },
+  { icon: Globe, name: "Edge Nodes", description: "Distributed edge computing", count: 0, color: "text-primary" },
+  { icon: Network, name: "Networking", description: "VPC, load balancers, DNS", count: 0, color: "text-primary" },
+  { icon: Shield, name: "Security", description: "IAM, firewalls, encryption", count: 0, color: "text-primary" },
+];
+
+const quickActions = [
+  { icon: Server, label: "Launch VM", href: "#" },
+  { icon: Database, label: "Create Database", href: "#" },
+  { icon: Globe, label: "Deploy Edge Node", href: "#" },
+  { icon: Network, label: "Set Up VPC", href: "#" },
+];
+
+const Console = () => {
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [hasOrg, setHasOrg] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    // Check if user has completed onboarding
+    const onboarded = localStorage.getItem("tac_onboarded");
+    if (user && !onboarded) {
+      navigate("/onboarding");
+    } else {
+      setHasOrg(true);
+    }
+  }, [user, navigate]);
+
+  if (loading || !user || !hasOrg) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex items-center gap-3">
+          <Cloud className="h-6 w-6 text-primary animate-pulse-glow" />
+          <span className="text-foreground font-heading">Loading console...</span>
+        </div>
+      </div>
+    );
+  }
+
+  const displayName = user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Top Bar */}
+      <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="flex items-center justify-between px-6 h-14">
+          <div className="flex items-center gap-3">
+            <Cloud className="h-5 w-5 text-primary" />
+            <span className="font-heading font-bold text-foreground">The Africa Cloud</span>
+            <span className="text-xs text-muted-foreground border border-border rounded-full px-2 py-0.5">Console</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">{displayName}</span>
+            <Button variant="ghost" size="sm" onClick={signOut}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Welcome */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-heading font-bold text-foreground mb-1">
+            Welcome back, <span className="text-gradient-gold">{displayName}</span>
+          </h1>
+          <p className="text-muted-foreground">Manage your African cloud infrastructure</p>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          {[
+            { icon: Cpu, label: "Active Instances", value: "0" },
+            { icon: Activity, label: "Uptime", value: "—" },
+            { icon: Users, label: "Team Members", value: "1" },
+            { icon: BarChart3, label: "Monthly Cost", value: "$0.00" },
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-lg border border-border bg-card p-4 flex items-center gap-4">
+              <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
+                <stat.icon className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <p className="text-xl font-heading font-bold text-foreground">{stat.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <h2 className="text-lg font-heading font-semibold text-foreground mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {quickActions.map((action) => (
+              <button
+                key={action.label}
+                className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 hover:border-primary/50 hover:bg-secondary transition-all group"
+              >
+                <Plus className="h-4 w-4 text-primary" />
+                <span className="text-sm text-foreground">{action.label}</span>
+                <ChevronRight className="h-3 w-3 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Services Grid */}
+        <div>
+          <h2 className="text-lg font-heading font-semibold text-foreground mb-4">Cloud Services</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {services.map((service) => (
+              <div
+                key={service.name}
+                className="rounded-lg border border-border bg-card p-5 hover:border-primary/40 transition-all cursor-pointer group"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
+                    <service.icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">
+                    {service.count} active
+                  </span>
+                </div>
+                <h3 className="font-heading font-semibold text-foreground mb-1">{service.name}</h3>
+                <p className="text-sm text-muted-foreground">{service.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Console;
