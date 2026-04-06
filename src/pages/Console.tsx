@@ -37,13 +37,20 @@ const Console = () => {
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    // Check if user has completed onboarding
-    const onboarded = localStorage.getItem("tac_onboarded");
-    if (user && !onboarded) {
-      navigate("/onboarding");
-    } else {
-      setHasOrg(true);
-    }
+    if (!user) return;
+    const checkOnboarding = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("onboarded")
+        .eq("id", user.id)
+        .single();
+      if (!data?.onboarded) {
+        navigate("/onboarding");
+      } else {
+        setHasOrg(true);
+      }
+    };
+    checkOnboarding();
   }, [user, navigate]);
 
   if (loading || !user || !hasOrg) {

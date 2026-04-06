@@ -222,8 +222,8 @@ const Onboarding = () => {
                   Continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
-                <Button onClick={handleFinish} className="bg-primary text-primary-foreground">
-                  Launch Console <ArrowRight className="ml-2 h-4 w-4" />
+                <Button onClick={handleFinish} disabled={saving} className="bg-primary text-primary-foreground">
+                  {saving ? "Saving..." : "Launch Console"} <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               )}
             </div>
