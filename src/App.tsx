@@ -8,6 +8,7 @@ import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import Console from "./pages/Console.tsx";
 import Compute from "./pages/Compute.tsx";
+import Databases from "./pages/Databases.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/console" element={<Console />} />
             <Route path="/console/compute" element={<Compute />} />
+            <Route path="/console/databases" element={<Databases />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
