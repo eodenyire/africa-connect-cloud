@@ -92,6 +92,86 @@ export type Database = {
         }
         Relationships: []
       }
+      storage_buckets: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          object_count: number
+          region: string
+          size_bytes: number
+          status: string
+          storage_class: string
+          updated_at: string | null
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          object_count?: number
+          region?: string
+          size_bytes?: number
+          status?: string
+          storage_class?: string
+          updated_at?: string | null
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          object_count?: number
+          region?: string
+          size_bytes?: number
+          status?: string
+          storage_class?: string
+          updated_at?: string | null
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
+      storage_objects: {
+        Row: {
+          bucket_id: string
+          content_type: string
+          created_at: string | null
+          id: string
+          key: string
+          size_bytes: number
+          user_id: string
+        }
+        Insert: {
+          bucket_id: string
+          content_type?: string
+          created_at?: string | null
+          id?: string
+          key: string
+          size_bytes?: number
+          user_id: string
+        }
+        Update: {
+          bucket_id?: string
+          content_type?: string
+          created_at?: string | null
+          id?: string
+          key?: string
+          size_bytes?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_objects_bucket_id_fkey"
+            columns: ["bucket_id"]
+            isOneToOne: false
+            referencedRelation: "storage_buckets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       virtual_machines: {
         Row: {
           created_at: string | null
