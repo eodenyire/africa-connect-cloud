@@ -141,6 +141,7 @@ const Console = () => {
                 onClick={() => {
                   if (service.name === "Compute") navigate("/console/compute");
                   else if (service.name === "Databases") navigate("/console/databases");
+                  else if (service.name === "Storage") navigate("/console/storage");
                 }}
                 className="rounded-lg border border-border bg-card p-5 hover:border-primary/40 transition-all cursor-pointer group"
               >
