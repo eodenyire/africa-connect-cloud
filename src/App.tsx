@@ -11,6 +11,7 @@ import Compute from "./pages/Compute.tsx";
 import Databases from "./pages/Databases.tsx";
 import StoragePage from "./pages/Storage.tsx";
 import EdgeNodes from "./pages/EdgeNodes.tsx";
+import Networking from "./pages/Networking.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
