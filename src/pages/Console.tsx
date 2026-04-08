@@ -14,7 +14,7 @@ const SERVICE_DEFS = [
   { icon: Database, name: "Databases", description: "Managed PostgreSQL, Redis, MongoDB", table: "database_instances" as const },
   { icon: HardDrive, name: "Storage", description: "Object & block storage", table: "storage_buckets" as const },
   { icon: Globe, name: "Edge Nodes", description: "Distributed edge computing", table: "edge_nodes" as const },
-  { icon: Network, name: "Networking", description: "VPC, load balancers, DNS", table: null },
+  { icon: Network, name: "Networking", description: "VPC, load balancers, DNS", table: "vpcs" as const },
   { icon: Shield, name: "Security", description: "IAM, firewalls, encryption", table: null },
 ];
 
