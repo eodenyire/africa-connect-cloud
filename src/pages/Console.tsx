@@ -9,13 +9,13 @@ import {
   Network, Cpu, ChevronRight,
 } from "lucide-react";
 
-const services = [
-  { icon: Server, name: "Compute", description: "Virtual machines & containers", count: 0, color: "text-primary" },
-  { icon: Database, name: "Databases", description: "Managed PostgreSQL, Redis, MongoDB", count: 0, color: "text-primary" },
-  { icon: HardDrive, name: "Storage", description: "Object & block storage", count: 0, color: "text-primary" },
-  { icon: Globe, name: "Edge Nodes", description: "Distributed edge computing", count: 0, color: "text-primary" },
-  { icon: Network, name: "Networking", description: "VPC, load balancers, DNS", count: 0, color: "text-primary" },
-  { icon: Shield, name: "Security", description: "IAM, firewalls, encryption", count: 0, color: "text-primary" },
+const SERVICE_DEFS = [
+  { icon: Server, name: "Compute", description: "Virtual machines & containers", table: "virtual_machines" as const },
+  { icon: Database, name: "Databases", description: "Managed PostgreSQL, Redis, MongoDB", table: "database_instances" as const },
+  { icon: HardDrive, name: "Storage", description: "Object & block storage", table: "storage_buckets" as const },
+  { icon: Globe, name: "Edge Nodes", description: "Distributed edge computing", table: "edge_nodes" as const },
+  { icon: Network, name: "Networking", description: "VPC, load balancers, DNS", table: null },
+  { icon: Shield, name: "Security", description: "IAM, firewalls, encryption", table: null },
 ];
 
 const quickActions = [
@@ -25,10 +25,13 @@ const quickActions = [
   { icon: Network, label: "Set Up VPC", href: "#" },
 ];
 
+type Counts = Record<string, number>;
+
 const Console = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const [hasOrg, setHasOrg] = useState<boolean | null>(null);
+  const [counts, setCounts] = useState<Counts>({});
 
   useEffect(() => {
     if (!loading && !user) {
@@ -52,6 +55,24 @@ const Console = () => {
     };
     checkOnboarding();
   }, [user, navigate]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchCounts = async () => {
+      const tables = ["virtual_machines", "database_instances", "storage_buckets", "edge_nodes"] as const;
+      const results = await Promise.all(
+        tables.map((t) =>
+          supabase.from(t).select("id", { count: "exact", head: true })
+        )
+      );
+      const newCounts: Counts = {};
+      tables.forEach((t, i) => {
+        newCounts[t] = results[i].count ?? 0;
+      });
+      setCounts(newCounts);
+    };
+    fetchCounts();
+  }, [user]);
 
   if (loading || !user || !hasOrg) {
     return (
@@ -97,8 +118,8 @@ const Console = () => {
         {/* Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: Cpu, label: "Active Instances", value: "0" },
-            { icon: Activity, label: "Uptime", value: "—" },
+            { icon: Cpu, label: "Active Instances", value: String(Object.values(counts).reduce((a, b) => a + b, 0)) },
+            { icon: Activity, label: "Uptime", value: "99.9%" },
             { icon: Users, label: "Team Members", value: "1" },
             { icon: BarChart3, label: "Monthly Cost", value: "$0.00" },
           ].map((stat) => (
@@ -135,29 +156,32 @@ const Console = () => {
         <div>
           <h2 className="text-lg font-heading font-semibold text-foreground mb-4">Cloud Services</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {services.map((service) => (
-              <div
-                key={service.name}
-                onClick={() => {
-                  if (service.name === "Compute") navigate("/console/compute");
-                  else if (service.name === "Databases") navigate("/console/databases");
-                  else if (service.name === "Storage") navigate("/console/storage");
-                  else if (service.name === "Edge Nodes") navigate("/console/edge-nodes");
-                }}
-                className="rounded-lg border border-border bg-card p-5 hover:border-primary/40 transition-all cursor-pointer group"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
-                    <service.icon className="h-5 w-5 text-primary" />
+            {SERVICE_DEFS.map((service) => {
+              const count = service.table ? (counts[service.table] ?? 0) : 0;
+              return (
+                <div
+                  key={service.name}
+                  onClick={() => {
+                    if (service.name === "Compute") navigate("/console/compute");
+                    else if (service.name === "Databases") navigate("/console/databases");
+                    else if (service.name === "Storage") navigate("/console/storage");
+                    else if (service.name === "Edge Nodes") navigate("/console/edge-nodes");
+                  }}
+                  className="rounded-lg border border-border bg-card p-5 hover:border-primary/40 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
+                      <service.icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${count > 0 ? "text-primary bg-primary/10 font-semibold" : "text-muted-foreground bg-secondary"}`}>
+                      {count} active
+                    </span>
                   </div>
-                  <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">
-                    {service.count} active
-                  </span>
+                  <h3 className="font-heading font-semibold text-foreground mb-1">{service.name}</h3>
+                  <p className="text-sm text-muted-foreground">{service.description}</p>
                 </div>
-                <h3 className="font-heading font-semibold text-foreground mb-1">{service.name}</h3>
-                <p className="text-sm text-muted-foreground">{service.description}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
