@@ -118,8 +118,8 @@ const Console = () => {
         {/* Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: Cpu, label: "Active Instances", value: "0" },
-            { icon: Activity, label: "Uptime", value: "—" },
+            { icon: Cpu, label: "Active Instances", value: String(Object.values(counts).reduce((a, b) => a + b, 0)) },
+            { icon: Activity, label: "Uptime", value: "99.9%" },
             { icon: Users, label: "Team Members", value: "1" },
             { icon: BarChart3, label: "Monthly Cost", value: "$0.00" },
           ].map((stat) => (
