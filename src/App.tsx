@@ -32,6 +32,7 @@ const App = () => (
             <Route path="/console/databases" element={<Databases />} />
             <Route path="/console/storage" element={<StoragePage />} />
             <Route path="/console/edge-nodes" element={<EdgeNodes />} />
+            <Route path="/console/networking" element={<Networking />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
