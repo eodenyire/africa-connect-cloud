@@ -14,7 +14,7 @@ const SERVICE_DEFS = [
   { icon: Database, name: "Databases", description: "Managed PostgreSQL, Redis, MongoDB", table: "database_instances" as const },
   { icon: HardDrive, name: "Storage", description: "Object & block storage", table: "storage_buckets" as const },
   { icon: Globe, name: "Edge Nodes", description: "Distributed edge computing", table: "edge_nodes" as const },
-  { icon: Network, name: "Networking", description: "VPC, load balancers, DNS", table: null },
+  { icon: Network, name: "Networking", description: "VPC, load balancers, DNS", table: "vpcs" as const },
   { icon: Shield, name: "Security", description: "IAM, firewalls, encryption", table: null },
 ];
 
@@ -59,7 +59,7 @@ const Console = () => {
   useEffect(() => {
     if (!user) return;
     const fetchCounts = async () => {
-      const tables = ["virtual_machines", "database_instances", "storage_buckets", "edge_nodes"] as const;
+      const tables = ["virtual_machines", "database_instances", "storage_buckets", "edge_nodes", "vpcs"] as const;
       const results = await Promise.all(
         tables.map((t) =>
           supabase.from(t).select("id", { count: "exact", head: true })
@@ -166,6 +166,7 @@ const Console = () => {
                     else if (service.name === "Databases") navigate("/console/databases");
                     else if (service.name === "Storage") navigate("/console/storage");
                     else if (service.name === "Edge Nodes") navigate("/console/edge-nodes");
+                    else if (service.name === "Networking") navigate("/console/networking");
                   }}
                   className="rounded-lg border border-border bg-card p-5 hover:border-primary/40 transition-all cursor-pointer group"
                 >

@@ -11,6 +11,7 @@ import Compute from "./pages/Compute.tsx";
 import Databases from "./pages/Databases.tsx";
 import StoragePage from "./pages/Storage.tsx";
 import EdgeNodes from "./pages/EdgeNodes.tsx";
+import Networking from "./pages/Networking.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/console/databases" element={<Databases />} />
             <Route path="/console/storage" element={<StoragePage />} />
             <Route path="/console/edge-nodes" element={<EdgeNodes />} />
+            <Route path="/console/networking" element={<Networking />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
