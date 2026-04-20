@@ -1,14 +1,21 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
-  Cloud, Server, ArrowLeft, Plus, Power, PowerOff, Trash2,
+  Cloud, Server, Plus, Power, PowerOff, Trash2,
   Cpu, HardDrive, MemoryStick, Globe, Monitor, RefreshCw,
 } from "lucide-react";
+import { ConsoleLayout } from "@/components/ConsoleLayout";
+import {
+  createComputeInstance,
+  deleteComputeInstance,
+  listComputeInstances,
+  updateComputeStatus,
+} from "@/lib/controlPlane";
 
 const REGIONS = [
   { value: "nairobi", label: "Nairobi, Kenya" },
@@ -58,6 +65,7 @@ type VM = {
 
 const Compute = () => {
   const { user, loading } = useAuth();
+  const { organization, project, loading: workspaceLoading } = useWorkspace();
   const navigate = useNavigate();
   const [vms, setVms] = useState<VM[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -77,10 +85,7 @@ const Compute = () => {
   const fetchVMs = async () => {
     if (!user) return;
     setFetching(true);
-    const { data, error } = await supabase
-      .from("virtual_machines")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await listComputeInstances(user.id);
     if (error) {
       toast.error("Failed to load instances");
     } else {
@@ -100,59 +105,72 @@ const Compute = () => {
       toast.error("Instance name is required");
       return;
     }
+    if (!organization?.id) {
+      toast.error("Organization context missing");
+      return;
+    }
     setCreating(true);
     const machine = MACHINE_TYPES.find((m) => m.value === machineType)!;
     const fakeIp = `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
 
-    const { error } = await supabase.from("virtual_machines").insert({
-      user_id: user!.id,
-      name: name.trim(),
-      region,
-      machine_type: machineType,
-      vcpus: machine.vcpus,
-      ram_gb: machine.ram,
-      disk_gb: machine.disk,
-      os_image: osImage,
-      status: "provisioning",
-      ip_address: fakeIp,
-    });
-
-    if (error) {
-      toast.error("Failed to create instance");
-    } else {
+    try {
+      await createComputeInstance(
+        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
+        {
+          name: name.trim(),
+          region,
+          machine_type: machineType,
+          vcpus: machine.vcpus,
+          ram_gb: machine.ram,
+          disk_gb: machine.disk,
+          os_image: osImage,
+          status: "provisioning",
+          ip_address: fakeIp,
+          price: machine.price,
+        }
+      );
       toast.success("Instance is provisioning…");
       setShowCreate(false);
       setName("");
-      // Simulate provisioning → running after 3s
       setTimeout(() => fetchVMs(), 3000);
       fetchVMs();
+    } catch {
+      toast.error("Failed to create instance");
     }
     setCreating(false);
   };
 
   const toggleVM = async (vm: VM) => {
     const newStatus = vm.status === "running" ? "stopped" : "running";
-    const { error } = await supabase
-      .from("virtual_machines")
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq("id", vm.id);
-    if (error) toast.error("Action failed");
-    else {
+    try {
+      if (!organization?.id) throw new Error("Organization context missing");
+      await updateComputeStatus(
+        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
+        vm.id,
+        newStatus
+      );
       toast.success(newStatus === "running" ? "Instance starting…" : "Instance stopping…");
       fetchVMs();
+    } catch {
+      toast.error("Action failed");
     }
   };
 
   const deleteVM = async (vm: VM) => {
-    const { error } = await supabase.from("virtual_machines").delete().eq("id", vm.id);
-    if (error) toast.error("Failed to terminate");
-    else {
+    try {
+      if (!organization?.id) throw new Error("Organization context missing");
+      await deleteComputeInstance(
+        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
+        vm.id
+      );
       toast.success("Instance terminated");
       fetchVMs();
+    } catch {
+      toast.error("Failed to terminate");
     }
   };
 
-  if (loading || !user) {
+  if (loading || workspaceLoading || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Cloud className="h-6 w-6 text-primary animate-pulse" />
@@ -161,23 +179,14 @@ const Compute = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center justify-between px-6 h-14">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/console")}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <Server className="h-5 w-5 text-primary" />
-            <span className="font-heading font-bold text-foreground">Compute Engine</span>
-          </div>
-          <Button size="sm" onClick={() => setShowCreate(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Launch Instance
-          </Button>
-        </div>
-      </header>
-
+    <ConsoleLayout
+      title="Compute"
+      actions={
+        <Button size="sm" onClick={() => setShowCreate(true)} className="gap-2">
+          <Plus className="h-4 w-4" /> Launch Instance
+        </Button>
+      }
+    >
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Create Instance Panel */}
         {showCreate && (
@@ -362,7 +371,7 @@ const Compute = () => {
           )}
         </div>
       </div>
-    </div>
+    </ConsoleLayout>
   );
 };
 

@@ -1,14 +1,26 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
-  Cloud, Network, ArrowLeft, Plus, Trash2, RefreshCw,
+  Cloud, Network, Plus, Trash2, RefreshCw,
   Globe, Shield, Wifi, Server, Copy, Radio,
 } from "lucide-react";
+import { ConsoleLayout } from "@/components/ConsoleLayout";
+import {
+  createDnsRecord,
+  createLoadBalancer,
+  createVpc,
+  deleteDnsRecord as removeDnsRecord,
+  deleteLoadBalancer as removeLoadBalancer,
+  deleteVpc as removeVpc,
+  listDnsRecords,
+  listLoadBalancers,
+  listVpcs,
+} from "@/lib/controlPlane";
 
 const REGIONS = [
   { value: "nairobi", label: "Nairobi, Kenya" },
@@ -41,6 +53,7 @@ type DNS = { id: string; zone: string; record_type: string; name: string; value:
 
 const Networking = () => {
   const { user, loading } = useAuth();
+  const { organization, project, loading: workspaceLoading } = useWorkspace();
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabKey>("vpcs");
   const [fetching, setFetching] = useState(true);
@@ -78,9 +91,9 @@ const Networking = () => {
     if (!user) return;
     setFetching(true);
     const [v, l, d] = await Promise.all([
-      supabase.from("vpcs").select("*").order("created_at", { ascending: false }),
-      supabase.from("load_balancers").select("*").order("created_at", { ascending: false }),
-      supabase.from("dns_records").select("*").order("created_at", { ascending: false }),
+      listVpcs(user.id),
+      listLoadBalancers(user.id),
+      listDnsRecords(user.id),
     ]);
     setVpcs(v.data || []);
     setLbs(l.data || []);
@@ -97,50 +110,104 @@ const Networking = () => {
 
   const handleCreateVpc = async () => {
     if (!vpcName.trim()) { toast.error("VPC name is required"); return; }
+    if (!organization?.id) { toast.error("Organization context missing"); return; }
     setCreating(true);
-    const { error } = await supabase.from("vpcs").insert({
-      user_id: user!.id, name: vpcName.trim(), region: vpcRegion, cidr_block: vpcCidr,
-    });
-    if (error) toast.error("Failed to create VPC");
-    else { toast.success("VPC created"); resetForms(); fetchAll(); }
+    try {
+      await createVpc(
+        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
+        { name: vpcName.trim(), region: vpcRegion, cidr_block: vpcCidr, status: "available", price: 8 }
+      );
+      toast.success("VPC created");
+      resetForms();
+      fetchAll();
+    } catch {
+      toast.error("Failed to create VPC");
+    }
     setCreating(false);
   };
 
   const handleCreateLb = async () => {
     if (!lbName.trim()) { toast.error("Name is required"); return; }
+    if (!organization?.id) { toast.error("Organization context missing"); return; }
     setCreating(true);
     const fakeDns = `${lbName.trim().toLowerCase()}-${Math.random().toString(36).slice(2, 8)}.ac-lb.africa`;
-    const { error } = await supabase.from("load_balancers").insert({
-      user_id: user!.id, name: lbName.trim(), region: lbRegion, lb_type: lbType,
-      protocol: lbType === "application" ? "HTTPS" : "TCP", port: lbPort, dns_name: fakeDns,
-    });
-    if (error) toast.error("Failed to create load balancer");
-    else { toast.success("Load balancer provisioning…"); resetForms(); fetchAll(); }
+    try {
+      await createLoadBalancer(
+        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
+        {
+          name: lbName.trim(),
+          region: lbRegion,
+          lb_type: lbType,
+          protocol: lbType === "application" ? "HTTPS" : "TCP",
+          port: lbPort,
+          dns_name: fakeDns,
+          status: "provisioning",
+          price: 15,
+        }
+      );
+      toast.success("Load balancer provisioning…");
+      resetForms();
+      fetchAll();
+    } catch {
+      toast.error("Failed to create load balancer");
+    }
     setCreating(false);
   };
 
   const handleCreateDns = async () => {
     if (!dnsZone.trim() || !dnsName.trim() || !dnsValue.trim()) { toast.error("All fields required"); return; }
+    if (!organization?.id) { toast.error("Organization context missing"); return; }
     setCreating(true);
-    const { error } = await supabase.from("dns_records").insert({
-      user_id: user!.id, zone: dnsZone.trim(), record_type: dnsType, name: dnsName.trim(), value: dnsValue.trim(), ttl: dnsTtl,
-    });
-    if (error) toast.error("Failed to create DNS record");
-    else { toast.success("DNS record created"); resetForms(); fetchAll(); }
+    try {
+      await createDnsRecord(
+        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
+        {
+          zone: dnsZone.trim(),
+          record_type: dnsType,
+          name: dnsName.trim(),
+          value: dnsValue.trim(),
+          ttl: dnsTtl,
+          status: "active",
+        }
+      );
+      toast.success("DNS record created");
+      resetForms();
+      fetchAll();
+    } catch {
+      toast.error("Failed to create DNS record");
+    }
     setCreating(false);
   };
 
   const deleteVpc = async (id: string) => {
-    const { error } = await supabase.from("vpcs").delete().eq("id", id);
-    if (error) toast.error("Failed to delete"); else { toast.success("VPC deleted"); fetchAll(); }
+    try {
+      if (!organization?.id) throw new Error("Organization context missing");
+      await removeVpc({ userId: user!.id, orgId: organization.id, projectId: project?.id ?? null }, id);
+      toast.success("VPC deleted");
+      fetchAll();
+    } catch {
+      toast.error("Failed to delete");
+    }
   };
   const deleteLb = async (id: string) => {
-    const { error } = await supabase.from("load_balancers").delete().eq("id", id);
-    if (error) toast.error("Failed to delete"); else { toast.success("Load balancer deleted"); fetchAll(); }
+    try {
+      if (!organization?.id) throw new Error("Organization context missing");
+      await removeLoadBalancer({ userId: user!.id, orgId: organization.id, projectId: project?.id ?? null }, id);
+      toast.success("Load balancer deleted");
+      fetchAll();
+    } catch {
+      toast.error("Failed to delete");
+    }
   };
   const deleteDns = async (id: string) => {
-    const { error } = await supabase.from("dns_records").delete().eq("id", id);
-    if (error) toast.error("Failed to delete"); else { toast.success("DNS record deleted"); fetchAll(); }
+    try {
+      if (!organization?.id) throw new Error("Organization context missing");
+      await removeDnsRecord({ userId: user!.id, orgId: organization.id, projectId: project?.id ?? null }, id);
+      toast.success("DNS record deleted");
+      fetchAll();
+    } catch {
+      toast.error("Failed to delete");
+    }
   };
 
   const copyText = (text: string) => {
@@ -148,7 +215,7 @@ const Networking = () => {
     toast.success("Copied to clipboard");
   };
 
-  if (loading || !user) {
+  if (loading || workspaceLoading || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Cloud className="h-6 w-6 text-primary animate-pulse" />
@@ -165,22 +232,14 @@ const Networking = () => {
   const createLabel = tab === "vpcs" ? "Create VPC" : tab === "load-balancers" ? "Create Load Balancer" : "Add DNS Record";
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center justify-between px-6 h-14">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/console")}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <Network className="h-5 w-5 text-primary" />
-            <span className="font-heading font-bold text-foreground">Networking</span>
-          </div>
-          <Button size="sm" onClick={() => setShowCreate(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> {createLabel}
-          </Button>
-        </div>
-      </header>
-
+    <ConsoleLayout
+      title="Networking"
+      actions={
+        <Button size="sm" onClick={() => setShowCreate(true)} className="gap-2">
+          <Plus className="h-4 w-4" /> {createLabel}
+        </Button>
+      }
+    >
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">
@@ -501,7 +560,7 @@ const Networking = () => {
           )}
         </div>
       </div>
-    </div>
+    </ConsoleLayout>
   );
 };
 

@@ -13,6 +13,13 @@ import StoragePage from "./pages/Storage.tsx";
 import EdgeNodes from "./pages/EdgeNodes.tsx";
 import Networking from "./pages/Networking.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
+import IAM from "./pages/IAM.tsx";
+import Billing from "./pages/Billing.tsx";
+import AuditLogs from "./pages/AuditLogs.tsx";
+import IaC from "./pages/IaC.tsx";
+import Developers from "./pages/Developers.tsx";
+import Observability from "./pages/Observability.tsx";
+import Settings from "./pages/Settings.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -33,6 +40,13 @@ const App = () => (
             <Route path="/console/storage" element={<StoragePage />} />
             <Route path="/console/edge-nodes" element={<EdgeNodes />} />
             <Route path="/console/networking" element={<Networking />} />
+            <Route path="/console/iam" element={<IAM />} />
+            <Route path="/console/billing" element={<Billing />} />
+            <Route path="/console/audit" element={<AuditLogs />} />
+            <Route path="/console/iac" element={<IaC />} />
+            <Route path="/console/developers" element={<Developers />} />
+            <Route path="/console/observability" element={<Observability />} />
+            <Route path="/console/settings" element={<Settings />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

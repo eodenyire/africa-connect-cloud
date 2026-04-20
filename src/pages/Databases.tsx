@@ -1,14 +1,21 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
-  Cloud, Database, ArrowLeft, Plus, Power, PowerOff, Trash2,
+  Cloud, Database, Plus, Power, PowerOff, Trash2,
   Globe, RefreshCw, HardDrive, Plug,
 } from "lucide-react";
+import { ConsoleLayout } from "@/components/ConsoleLayout";
+import {
+  createDatabaseInstance,
+  deleteDatabaseInstance,
+  listDatabaseInstances,
+  updateDatabaseStatus,
+} from "@/lib/controlPlane";
 
 const REGIONS = [
   { value: "nairobi", label: "Nairobi, Kenya" },
@@ -54,6 +61,7 @@ type DBInstance = {
 
 const Databases = () => {
   const { user, loading } = useAuth();
+  const { organization, project, loading: workspaceLoading } = useWorkspace();
   const navigate = useNavigate();
   const [instances, setInstances] = useState<DBInstance[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -73,10 +81,7 @@ const Databases = () => {
   const fetchInstances = async () => {
     if (!user) return;
     setFetching(true);
-    const { data, error } = await supabase
-      .from("database_instances")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await listDatabaseInstances(user.id);
     if (error) toast.error("Failed to load databases");
     else setInstances(data || []);
     setFetching(false);
@@ -91,6 +96,7 @@ const Databases = () => {
 
   const handleCreate = async () => {
     if (!name.trim()) { toast.error("Database name is required"); return; }
+    if (!organization?.id) { toast.error("Organization context missing"); return; }
     setCreating(true);
     const eng = ENGINES.find((e) => e.value === engine)!;
     const pl = PLANS.find((p) => p.value === plan)!;
@@ -101,47 +107,64 @@ const Databases = () => {
         ? `mongodb://admin:****@${host}:${eng.defaultPort}/main`
         : `redis://default:****@${host}:${eng.defaultPort}`;
 
-    const { error } = await supabase.from("database_instances").insert({
-      user_id: user!.id,
-      name: name.trim(),
-      engine,
-      version,
-      region,
-      plan,
-      storage_gb: pl.storage,
-      status: "provisioning",
-      connection_string: connStr,
-      port: eng.defaultPort,
-    });
-
-    if (error) toast.error("Failed to create database");
-    else {
+    try {
+      await createDatabaseInstance(
+        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
+        {
+          name: name.trim(),
+          engine,
+          version,
+          region,
+          plan,
+          storage_gb: pl.storage,
+          status: "provisioning",
+          connection_string: connStr,
+          port: eng.defaultPort,
+          price: pl.price,
+        }
+      );
       toast.success("Database is provisioning…");
       setShowCreate(false);
       setName("");
       setTimeout(() => fetchInstances(), 3000);
       fetchInstances();
+    } catch {
+      toast.error("Failed to create database");
     }
     setCreating(false);
   };
 
   const toggleInstance = async (db: DBInstance) => {
     const newStatus = db.status === "running" ? "stopped" : "running";
-    const { error } = await supabase
-      .from("database_instances")
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq("id", db.id);
-    if (error) toast.error("Action failed");
-    else { toast.success(newStatus === "running" ? "Starting…" : "Stopping…"); fetchInstances(); }
+    try {
+      if (!organization?.id) throw new Error("Organization context missing");
+      await updateDatabaseStatus(
+        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
+        db.id,
+        newStatus
+      );
+      toast.success(newStatus === "running" ? "Starting…" : "Stopping…");
+      fetchInstances();
+    } catch {
+      toast.error("Action failed");
+    }
   };
 
   const deleteInstance = async (db: DBInstance) => {
-    const { error } = await supabase.from("database_instances").delete().eq("id", db.id);
-    if (error) toast.error("Failed to delete");
-    else { toast.success("Database deleted"); fetchInstances(); }
+    try {
+      if (!organization?.id) throw new Error("Organization context missing");
+      await deleteDatabaseInstance(
+        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
+        db.id
+      );
+      toast.success("Database deleted");
+      fetchInstances();
+    } catch {
+      toast.error("Failed to delete");
+    }
   };
 
-  if (loading || !user) {
+  if (loading || workspaceLoading || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Cloud className="h-6 w-6 text-primary animate-pulse" />
@@ -150,22 +173,14 @@ const Databases = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center justify-between px-6 h-14">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/console")}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <Database className="h-5 w-5 text-primary" />
-            <span className="font-heading font-bold text-foreground">Managed Databases</span>
-          </div>
-          <Button size="sm" onClick={() => setShowCreate(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Create Database
-          </Button>
-        </div>
-      </header>
-
+    <ConsoleLayout
+      title="Databases"
+      actions={
+        <Button size="sm" onClick={() => setShowCreate(true)} className="gap-2">
+          <Plus className="h-4 w-4" /> Create Database
+        </Button>
+      }
+    >
       <div className="max-w-6xl mx-auto px-6 py-8">
         {showCreate && (
           <Card className="mb-8 border-primary/30">
@@ -366,7 +381,7 @@ const Databases = () => {
           )}
         </div>
       </div>
-    </div>
+    </ConsoleLayout>
   );
 };
 
