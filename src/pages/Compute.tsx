@@ -98,6 +98,7 @@ const Compute = () => {
   const [machineType, setMachineType] = useState("ac-standard-1");
   const [osImage, setOsImage] = useState("ubuntu-22.04");
   const realProvisioningEnabled = isProviderApiConfigured();
+  const realProvisioningEnabled = Boolean(import.meta.env.VITE_PROVIDER_API_BASE_URL);
 
   useEffect(() => {
     if (!loading && !user) navigate("/auth");
@@ -266,6 +267,7 @@ const Compute = () => {
             realProvisioningEnabled
               ? "Launch Instance"
               : "Set provider URL in Developers or VITE_PROVIDER_API_BASE_URL"
+              : "Set VITE_PROVIDER_API_BASE_URL to enable real provisioning"
           }
         >
           <Plus className="h-4 w-4" /> Launch Instance
@@ -280,6 +282,8 @@ const Compute = () => {
               <p className="text-muted-foreground mt-1">
                 Set provider base URL in Developers (runtime) or <code>VITE_PROVIDER_API_BASE_URL</code> and
                 configure a provider token to create and connect to real instances.
+                Set <code>VITE_PROVIDER_API_BASE_URL</code> and configure a provider token in Developers to create
+                and connect to real instances.
               </p>
             </CardContent>
           </Card>
@@ -415,6 +419,7 @@ const Compute = () => {
                     realProvisioningEnabled
                       ? "Launch Instance"
                       : "Set provider URL in Developers or VITE_PROVIDER_API_BASE_URL"
+                      : "Set VITE_PROVIDER_API_BASE_URL to enable real provisioning"
                   }
                 >
                   <Plus className="h-4 w-4" /> Launch Instance
