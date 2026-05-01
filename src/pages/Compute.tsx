@@ -79,6 +79,9 @@ const Compute = () => {
   const [machineType, setMachineType] = useState("ac-standard-1");
   const [osImage, setOsImage] = useState("ubuntu-22.04");
 
+  // Connect dialog
+  const [connectTarget, setConnectTarget] = useState<ConnectTarget | null>(null);
+
   useEffect(() => {
     if (!loading && !user) navigate("/auth");
   }, [user, loading, navigate]);
@@ -348,6 +351,23 @@ const Compute = () => {
                         <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${STATUS_COLORS[vm.status] || "text-muted-foreground bg-muted"}`}>
                           {vm.status}
                         </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() =>
+                            setConnectTarget({
+                              kind: "compute",
+                              name: vm.name,
+                              region: REGIONS.find((r) => r.value === vm.region)?.label ?? vm.region,
+                              ip: vm.ip_address,
+                              os: OS_IMAGES.find((o) => o.value === vm.os_image)?.label ?? vm.os_image,
+                            })
+                          }
+                          disabled={vm.status !== "running"}
+                        >
+                          <Terminal className="h-3.5 w-3.5" /> Connect
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
