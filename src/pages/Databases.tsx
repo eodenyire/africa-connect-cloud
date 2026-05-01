@@ -1,23 +1,22 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useNavigate } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
   Cloud, Database, Plus, Power, PowerOff, Trash2,
-  Globe, RefreshCw, HardDrive, Plug,
+  Globe, RefreshCw, HardDrive, Plug, Terminal,
 } from "lucide-react";
 import { ConsoleLayout } from "@/components/ConsoleLayout";
+import { ConnectDialog, type ConnectTarget } from "@/components/ConnectDialog";
 import {
   createDatabaseInstance,
   deleteDatabaseInstance,
   listDatabaseInstances,
   updateDatabaseStatus,
 } from "@/lib/controlPlane";
-import { useResourcePoller } from "@/hooks/useResourcePoller";
-import { deleteDatabaseFromProvider, provisionDatabase, startDatabase, stopDatabase } from "@/lib/providerApi";
 
 const REGIONS = [
   { value: "nairobi", label: "Nairobi, Kenya" },
@@ -59,7 +58,6 @@ type DBInstance = {
   connection_string: string | null;
   port: number | null;
   created_at: string | null;
-  tags?: Record<string, string>;
 };
 
 const Databases = () => {
@@ -77,24 +75,24 @@ const Databases = () => {
   const [region, setRegion] = useState("nairobi");
   const [plan, setPlan] = useState("db-standard-1");
 
+  const [connectTarget, setConnectTarget] = useState<ConnectTarget | null>(null);
+
   useEffect(() => {
     if (!loading && !user) navigate("/auth");
   }, [user, loading, navigate]);
 
-  const fetchInstances = useCallback(async () => {
+  const fetchInstances = async () => {
     if (!user) return;
     setFetching(true);
     const { data, error } = await listDatabaseInstances(user.id);
     if (error) toast.error("Failed to load databases");
     else setInstances(data || []);
     setFetching(false);
-  }, [user]);
+  };
 
   useEffect(() => {
     if (user) fetchInstances();
-  }, [user, fetchInstances]);
-
-  useResourcePoller(user?.id, fetchInstances);
+  }, [user]);
 
   const selectedEngine = ENGINES.find((e) => e.value === engine)!;
   const selectedPlan = PLANS.find((p) => p.value === plan)!;
@@ -103,18 +101,16 @@ const Databases = () => {
     if (!name.trim()) { toast.error("Database name is required"); return; }
     if (!organization?.id) { toast.error("Organization context missing"); return; }
     setCreating(true);
+    const eng = ENGINES.find((e) => e.value === engine)!;
     const pl = PLANS.find((p) => p.value === plan)!;
+    const host = `${name.trim().toLowerCase().replace(/\s+/g, "-")}.${region}.africloud.io`;
+    const connStr = engine === "postgresql"
+      ? `postgresql://admin:****@${host}:${eng.defaultPort}/main`
+      : engine === "mongodb"
+        ? `mongodb://admin:****@${host}:${eng.defaultPort}/main`
+        : `redis://default:****@${host}:${eng.defaultPort}`;
 
     try {
-      const providerDb = await provisionDatabase({
-        name: name.trim(),
-        engine,
-        version,
-        region,
-        plan,
-        storage_gb: pl.storage,
-      });
-
       await createDatabaseInstance(
         { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
         {
@@ -124,16 +120,16 @@ const Databases = () => {
           region,
           plan,
           storage_gb: pl.storage,
-          status: providerDb.status || "provisioning",
-          connection_string: providerDb.connection_string,
-          port: providerDb.port,
-          tags: { provider_id: providerDb.provider_id },
+          status: "provisioning",
+          connection_string: connStr,
+          port: eng.defaultPort,
           price: pl.price,
         }
       );
-      toast.success("Database request sent to provider");
+      toast.success("Database is provisioning…");
       setShowCreate(false);
       setName("");
+      setTimeout(() => fetchInstances(), 3000);
       fetchInstances();
     } catch {
       toast.error("Failed to create database");
@@ -143,15 +139,12 @@ const Databases = () => {
 
   const toggleInstance = async (db: DBInstance) => {
     const newStatus = db.status === "running" ? "stopped" : "running";
-    const providerId = db.tags?.provider_id;
     try {
       if (!organization?.id) throw new Error("Organization context missing");
-      if (!providerId) throw new Error("Missing provider identifier");
-      const providerState = db.status === "running" ? await stopDatabase(providerId) : await startDatabase(providerId);
       await updateDatabaseStatus(
         { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
         db.id,
-        providerState.status || newStatus
+        newStatus
       );
       toast.success(newStatus === "running" ? "Starting…" : "Stopping…");
       fetchInstances();
@@ -161,10 +154,8 @@ const Databases = () => {
   };
 
   const deleteInstance = async (db: DBInstance) => {
-    const providerId = db.tags?.provider_id;
     try {
       if (!organization?.id) throw new Error("Organization context missing");
-      if (providerId) await deleteDatabaseFromProvider(providerId);
       await deleteDatabaseInstance(
         { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
         db.id
@@ -366,14 +357,24 @@ const Databases = () => {
                         </div>
 
                         <div className="flex items-center gap-3">
-                          {db.connection_string && (
-                            <button
-                              onClick={() => { navigator.clipboard.writeText(db.connection_string!); toast.success("Connection string copied"); }}
-                              className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded hover:bg-secondary/80 transition-colors flex items-center gap-1"
-                            >
-                              <Plug className="h-3 w-3" /> Connect
-                            </button>
-                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() =>
+                              setConnectTarget({
+                                kind: "database",
+                                name: db.name,
+                                region: REGIONS.find((r) => r.value === db.region)?.label ?? db.region,
+                                engine: db.engine,
+                                port: db.port,
+                                connectionString: db.connection_string,
+                              })
+                            }
+                            disabled={db.status !== "running"}
+                          >
+                            <Terminal className="h-3.5 w-3.5" /> Connect
+                          </Button>
                           <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${STATUS_COLORS[db.status] || "text-muted-foreground bg-muted"}`}>
                             {db.status}
                           </span>
@@ -393,6 +394,11 @@ const Databases = () => {
           )}
         </div>
       </div>
+      <ConnectDialog
+        open={!!connectTarget}
+        onOpenChange={(v) => !v && setConnectTarget(null)}
+        target={connectTarget}
+      />
     </ConsoleLayout>
   );
 };

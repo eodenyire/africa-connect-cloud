@@ -72,9 +72,16 @@ const Console = () => {
 
   const fetchLiveStats = useCallback(async () => {
     if (!organization?.id) return;
+    const sb = supabase as unknown as {
+      from: (t: string) => {
+        select: (cols: string, opts?: { count?: "exact"; head?: boolean }) => {
+          eq: (col: string, val: string) => Promise<{ count?: number; data?: Array<{ amount_usd?: number }> }>;
+        };
+      };
+    };
     const [memberships, costs] = await Promise.all([
-      supabase.from("memberships").select("id", { count: "exact", head: true }).eq("org_id", organization.id),
-      supabase.from("cost_records").select("amount_usd").eq("org_id", organization.id),
+      sb.from("memberships").select("id", { count: "exact", head: true }).eq("org_id", organization.id),
+      sb.from("cost_records").select("amount_usd").eq("org_id", organization.id),
     ]);
     setMemberCount(memberships.count ?? 1);
     const total = (costs.data ?? []).reduce((sum, row) => sum + (row.amount_usd ?? 0), 0);

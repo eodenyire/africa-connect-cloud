@@ -74,11 +74,13 @@ const Auth = () => {
       setSsoLoading(false);
       return;
     }
-    const { error } = await supabase.from("sso_requests").insert({
-      user_id: session.user.id,
-      company_domain: ssoDomain.trim().toLowerCase(),
-      provider: "saml",
-    });
+    const { error } = await (supabase as unknown as { from: (t: string) => { insert: (v: Record<string, unknown>) => Promise<{ error: Error | null }> } })
+      .from("sso_requests")
+      .insert({
+        user_id: session.user.id,
+        company_domain: ssoDomain.trim().toLowerCase(),
+        provider: "saml",
+      });
     if (error) {
       toast({ title: "Request failed", description: error.message, variant: "destructive" });
     } else {

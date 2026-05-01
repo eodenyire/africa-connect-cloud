@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { toast } from "sonner";
-import { Cloud, KeyRound, TerminalSquare, Code2, Play } from "lucide-react";
+import { Cloud, KeyRound, TerminalSquare, Code2 } from "lucide-react";
 import { ConsoleLayout } from "@/components/ConsoleLayout";
 import {
   createApiToken,
@@ -14,7 +14,6 @@ import {
   revokeApiToken,
   listSsoRequests,
 } from "@/lib/controlPlane";
-import { runCliCommand } from "@/lib/providerApi";
 
 type ApiToken = {
   id: string;
@@ -46,12 +45,6 @@ const Developers = () => {
   const [tokenName, setTokenName] = useState("");
   const [tokenPreview, setTokenPreview] = useState("");
   const [creating, setCreating] = useState(false);
-
-  const [providerToken, setProviderToken] = useState(localStorage.getItem("ac_provider_token") ?? "");
-  const [providerBaseUrl, setProviderBaseUrl] = useState(localStorage.getItem("ac_provider_base_url") ?? "");
-  const [command, setCommand] = useState("acctl resources list");
-  const [runningCommand, setRunningCommand] = useState(false);
-  const [commandOutput, setCommandOutput] = useState<string>("");
 
   useEffect(() => {
     if (!loading && !user) navigate("/auth");
@@ -92,47 +85,6 @@ const Developers = () => {
       fetchTokens();
     }
     setCreating(false);
-  };
-
-
-
-  const saveProviderToken = () => {
-    localStorage.setItem("ac_provider_token", providerToken.trim());
-    toast.success("Provider token saved for real provisioning API calls");
-  };
-
-  const saveProviderBaseUrl = () => {
-    if (!providerBaseUrl.trim()) {
-      localStorage.removeItem("ac_provider_base_url");
-      toast.success("Runtime provider base URL cleared");
-      return;
-    }
-    localStorage.setItem("ac_provider_base_url", providerBaseUrl.trim());
-    toast.success("Runtime provider base URL saved");
-  };
-
-  const handleRunCommand = async () => {
-    if (!command.trim()) {
-      toast.error("Enter a CLI command first");
-      return;
-    }
-
-    setRunningCommand(true);
-    try {
-      const result = await runCliCommand({ command: command.trim() });
-      const output = [result.stdout?.trim(), result.stderr?.trim() ? `ERR:\n${result.stderr.trim()}` : "", `exit_code=${result.exit_code}`]
-        .filter(Boolean)
-        .join("\n\n");
-      setCommandOutput(output || "(no output)");
-      if (result.exit_code === 0) toast.success("Command executed");
-      else toast.error(`Command failed with exit code ${result.exit_code}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Command execution failed";
-      toast.error(message);
-      setCommandOutput(message);
-    } finally {
-      setRunningCommand(false);
-    }
   };
 
   const handleRevoke = async (tokenId: string) => {
@@ -206,58 +158,6 @@ const Developers = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Provider control-plane token</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              This token is used for real provider provisioning and command execution (not simulation).
-            </p>
-            <div className="flex flex-col md:flex-row gap-3">
-              <Input
-                placeholder="Provider API bearer token"
-                type="password"
-                value={providerToken}
-                onChange={(e) => setProviderToken(e.target.value)}
-              />
-              <Button onClick={saveProviderToken}>Save Token</Button>
-            </div>
-            <div className="flex flex-col md:flex-row gap-3">
-              <Input
-                placeholder="Provider API base URL (e.g. https://provider.example.com)"
-                value={providerBaseUrl}
-                onChange={(e) => setProviderBaseUrl(e.target.value)}
-              />
-              <Button variant="outline" onClick={saveProviderBaseUrl}>Save URL</Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Runtime URL overrides <code>VITE_PROVIDER_API_BASE_URL</code> and applies immediately.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>CLI command runner (real execution)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-col md:flex-row gap-3">
-              <Input
-                placeholder="acctl compute list"
-                value={command}
-                onChange={(e) => setCommand(e.target.value)}
-              />
-              <Button onClick={handleRunCommand} disabled={runningCommand} className="gap-2">
-                <Play className="h-4 w-4" /> Run
-              </Button>
-            </div>
-            <pre className="rounded-lg border border-border bg-secondary p-3 text-xs whitespace-pre-wrap min-h-24">
-              {commandOutput || "Run a command to view output here."}
-            </pre>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle>CLI & SDK quickstart</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
@@ -267,7 +167,7 @@ const Developers = () => {
             </div>
             <div className="flex items-center gap-2 text-foreground">
               <Code2 className="h-4 w-4 text-primary" />
-              <span>SDK: import {{ AfricaCloud }} from "@africa-cloud/sdk"</span>
+              <span>SDK: {`import { AfricaCloud } from "@africa-cloud/sdk"`}</span>
             </div>
             <p>
               Use the same OAuth or API token credentials across console, CLI, and SDK workflows.

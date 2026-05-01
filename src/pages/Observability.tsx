@@ -63,21 +63,20 @@ const Observability = () => {
   const fetchData = useCallback(async () => {
     if (!organization?.id) return;
     setFetching(true);
+    const sb = supabase as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => { order: (c: string, o: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: unknown[] | null }> } };
+          order: (c: string, o: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: unknown[] | null }> };
+        };
+      };
+    };
     const [resResult, opsResult] = await Promise.all([
-      supabase
-        .from("resources")
-        .select("*")
-        .eq("org_id", organization.id)
-        .order("updated_at", { ascending: false })
-        .limit(50),
-      supabase
-        .from("resource_operations")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(30),
+      sb.from("resources").select("*").eq("org_id", organization.id).order("updated_at", { ascending: false }).limit(50),
+      sb.from("resource_operations").select("*").order("created_at", { ascending: false }).limit(30),
     ]);
-    setResources((resResult.data as Resource[]) ?? []);
-    setOperations((opsResult.data as Operation[]) ?? []);
+    setResources(((resResult.data as unknown) as Resource[]) ?? []);
+    setOperations(((opsResult.data as unknown) as Operation[]) ?? []);
     setFetching(false);
   }, [organization?.id]);
 

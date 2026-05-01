@@ -53,14 +53,20 @@ const Onboarding = () => {
   const handleFinish = async () => {
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase.rpc("bootstrap_organization", {
-      p_org_name: orgName.trim(),
-      p_region: selectedRegion,
-      p_plan: selectedPlan,
-    });
 
-    if (error) {
-      toast.error("Failed to set up organization. Please try again.");
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        org_name: orgName,
+        region: selectedRegion,
+        plan: selectedPlan,
+        onboarded: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (profileError) {
+      toast.error("Failed to save profile. Please try again.");
       setSaving(false);
       return;
     }
