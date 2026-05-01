@@ -394,6 +394,11 @@ const Databases = () => {
           )}
         </div>
       </div>
+      <ConnectDialog
+        open={!!connectTarget}
+        onOpenChange={(v) => !v && setConnectTarget(null)}
+        target={connectTarget}
+      />
     </ConsoleLayout>
   );
 };
