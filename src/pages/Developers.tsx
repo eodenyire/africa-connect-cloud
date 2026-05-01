@@ -167,7 +167,7 @@ const Developers = () => {
             </div>
             <div className="flex items-center gap-2 text-foreground">
               <Code2 className="h-4 w-4 text-primary" />
-              <span>SDK: import {{ AfricaCloud }} from "@africa-cloud/sdk"</span>
+              <span>SDK: {`import { AfricaCloud } from "@africa-cloud/sdk"`}</span>
             </div>
             <p>
               Use the same OAuth or API token credentials across console, CLI, and SDK workflows.
