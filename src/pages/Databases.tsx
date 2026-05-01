@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
   Cloud, Database, Plus, Power, PowerOff, Trash2,
-  Globe, RefreshCw, HardDrive, Plug,
+  Globe, RefreshCw, HardDrive, Plug, Terminal,
 } from "lucide-react";
 import { ConsoleLayout } from "@/components/ConsoleLayout";
+import { ConnectDialog, type ConnectTarget } from "@/components/ConnectDialog";
 import {
   createDatabaseInstance,
   deleteDatabaseInstance,
@@ -73,6 +74,8 @@ const Databases = () => {
   const [version, setVersion] = useState("16");
   const [region, setRegion] = useState("nairobi");
   const [plan, setPlan] = useState("db-standard-1");
+
+  const [connectTarget, setConnectTarget] = useState<ConnectTarget | null>(null);
 
   useEffect(() => {
     if (!loading && !user) navigate("/auth");
@@ -354,14 +357,24 @@ const Databases = () => {
                         </div>
 
                         <div className="flex items-center gap-3">
-                          {db.connection_string && (
-                            <button
-                              onClick={() => { navigator.clipboard.writeText(db.connection_string!); toast.success("Connection string copied"); }}
-                              className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded hover:bg-secondary/80 transition-colors flex items-center gap-1"
-                            >
-                              <Plug className="h-3 w-3" /> Connect
-                            </button>
-                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() =>
+                              setConnectTarget({
+                                kind: "database",
+                                name: db.name,
+                                region: REGIONS.find((r) => r.value === db.region)?.label ?? db.region,
+                                engine: db.engine,
+                                port: db.port,
+                                connectionString: db.connection_string,
+                              })
+                            }
+                            disabled={db.status !== "running"}
+                          >
+                            <Terminal className="h-3.5 w-3.5" /> Connect
+                          </Button>
                           <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${STATUS_COLORS[db.status] || "text-muted-foreground bg-muted"}`}>
                             {db.status}
                           </span>
