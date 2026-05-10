@@ -4,7 +4,7 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import {
   Cloud, Server, Database, HardDrive, Globe, Shield,
   BarChart3, LogOut, Network, FileCode, Receipt, KeyRound,
-  BookOpenCheck, Settings, Activity, ChevronLeft, Menu, X,
+  BookOpenCheck, Settings, Activity, ChevronLeft, Menu, X, Plug, ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -16,6 +16,8 @@ const NAV_ITEMS = [
   { icon: HardDrive, label: "Storage", href: "/console/storage" },
   { icon: Globe, label: "Edge Nodes", href: "/console/edge-nodes" },
   { icon: Network, label: "Networking", href: "/console/networking" },
+  { icon: ListChecks, label: "Operations", href: "/console/operations" },
+  { icon: Plug, label: "Providers", href: "/console/providers" },
   { icon: Shield, label: "IAM", href: "/console/iam" },
   { icon: FileCode, label: "IaC Studio", href: "/console/iac" },
   { icon: KeyRound, label: "Developers", href: "/console/developers" },
