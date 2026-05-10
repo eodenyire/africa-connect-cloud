@@ -80,23 +80,6 @@ type VM = {
   provider: string;
   provider_resource_id: string | null;
 };
-
-type VM = {
-  id: string;
-  name: string;
-  region: string;
-  machine_type: string;
-  vcpus: number;
-  ram_gb: number;
-  disk_gb: number;
-  os_image: string;
-  status: string;
-  ip_address: string | null;
-  created_at: string | null;
-  provider: string;
-  provider_resource_id: string | null;
-};
-
 const Compute = () => {
   const { user, loading } = useAuth();
   const { organization, project: _project, loading: workspaceLoading } = useWorkspace();
