@@ -11,12 +11,27 @@ import {
 } from "lucide-react";
 import { ConsoleLayout } from "@/components/ConsoleLayout";
 import { ConnectDialog, type ConnectTarget } from "@/components/ConnectDialog";
-import {
-  createComputeInstance,
-  deleteComputeInstance,
-  listComputeInstances,
-  updateComputeStatus,
-} from "@/lib/controlPlane";
+import { supabase } from "@/integrations/supabase/client";
+import { provision, type Provider } from "@/lib/provision";
+
+const PROVIDERS: { value: Provider; label: string; hint: string }[] = [
+  { value: "hetzner",      label: "Hetzner",      hint: "Cheap, fast, EU + US" },
+  { value: "digitalocean", label: "DigitalOcean", hint: "Global droplets" },
+  { value: "aws",          label: "AWS EC2",      hint: "Most regions" },
+];
+
+// Map our AC machine types to provider-specific sizes
+const PROVIDER_SIZE: Partial<Record<Provider, Record<string, string>>> = {
+  hetzner:      { "ac-standard-1": "cx22", "ac-standard-2": "cx32", "ac-standard-4": "cx42", "ac-compute-8": "ccx13", "ac-compute-16": "ccx23" },
+  digitalocean: { "ac-standard-1": "s-1vcpu-2gb", "ac-standard-2": "s-2vcpu-4gb", "ac-standard-4": "s-4vcpu-8gb", "ac-compute-8": "c-8", "ac-compute-16": "c-16" },
+  aws:          { "ac-standard-1": "t3.small", "ac-standard-2": "t3.medium", "ac-standard-4": "t3.large", "ac-compute-8": "c6i.2xlarge", "ac-compute-16": "c6i.4xlarge" },
+};
+
+const PROVIDER_REGION: Partial<Record<Provider, Record<string, string>>> = {
+  hetzner:      { nairobi: "nbg1", lagos: "fsn1", "cape-town": "hel1", cairo: "nbg1", accra: "fsn1", kigali: "hel1" },
+  digitalocean: { nairobi: "fra1", lagos: "lon1", "cape-town": "lon1", cairo: "fra1", accra: "lon1", kigali: "fra1" },
+  aws:          { nairobi: "af-south-1", lagos: "af-south-1", "cape-town": "af-south-1", cairo: "eu-south-1", accra: "eu-west-1", kigali: "eu-central-1" },
+};
 
 const REGIONS = [
   { value: "nairobi", label: "Nairobi, Kenya" },
@@ -62,11 +77,12 @@ type VM = {
   status: string;
   ip_address: string | null;
   created_at: string | null;
+  provider: string;
+  provider_resource_id: string | null;
 };
-
 const Compute = () => {
   const { user, loading } = useAuth();
-  const { organization, project, loading: workspaceLoading } = useWorkspace();
+  const { organization, project: _project, loading: workspaceLoading } = useWorkspace();
   const navigate = useNavigate();
   const [vms, setVms] = useState<VM[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -78,6 +94,7 @@ const Compute = () => {
   const [region, setRegion] = useState("nairobi");
   const [machineType, setMachineType] = useState("ac-standard-1");
   const [osImage, setOsImage] = useState("ubuntu-22.04");
+  const [provider, setProvider] = useState<Provider>("hetzner");
 
   // Connect dialog
   const [connectTarget, setConnectTarget] = useState<ConnectTarget | null>(null);
@@ -89,12 +106,13 @@ const Compute = () => {
   const fetchVMs = async () => {
     if (!user) return;
     setFetching(true);
-    const { data, error } = await listComputeInstances(user.id);
-    if (error) {
-      toast.error("Failed to load instances");
-    } else {
-      setVms(data || []);
-    }
+    const { data, error } = await supabase
+      .from("virtual_machines")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    if (error) toast.error("Failed to load instances");
+    else setVms((data as VM[]) || []);
     setFetching(false);
   };
 
@@ -105,73 +123,107 @@ const Compute = () => {
   const selectedMachine = MACHINE_TYPES.find((m) => m.value === machineType)!;
 
   const handleCreate = async () => {
-    if (!name.trim()) {
-      toast.error("Instance name is required");
-      return;
-    }
-    if (!organization?.id) {
-      toast.error("Organization context missing");
-      return;
-    }
+    if (!name.trim()) { toast.error("Instance name is required"); return; }
+    if (!organization?.id) { toast.error("Workspace not ready"); return; }
     setCreating(true);
     const machine = MACHINE_TYPES.find((m) => m.value === machineType)!;
-    const fakeIp = `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+    const providerSize = PROVIDER_SIZE[provider]?.[machineType] ?? machineType;
+    const providerRegion = PROVIDER_REGION[provider]?.[region] ?? region;
 
     try {
-      await createComputeInstance(
-        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
-        {
+      // 1. Insert local row in 'provisioning' state so UI updates instantly
+      const { data: row, error: insErr } = await supabase
+        .from("virtual_machines")
+        .insert({
+          user_id: user!.id,
+          name: name.trim(), region, machine_type: machineType,
+          vcpus: machine.vcpus, ram_gb: machine.ram, disk_gb: machine.disk,
+          os_image: osImage, status: "provisioning", ip_address: null,
+          provider,
+        } as never)
+        .select("*")
+        .single();
+      if (insErr || !row) throw insErr ?? new Error("Insert failed");
+
+      // 2. Call orchestrator → real provider API
+      const result = await provision({
+        action: "create",
+        resource_type: "compute",
+        provider,
+        resource_id: (row as VM).id,
+        payload: {
           name: name.trim(),
-          region,
-          machine_type: machineType,
-          vcpus: machine.vcpus,
-          ram_gb: machine.ram,
-          disk_gb: machine.disk,
-          os_image: osImage,
-          status: "provisioning",
-          ip_address: fakeIp,
-          price: machine.price,
-        }
-      );
-      toast.success("Instance is provisioning…");
-      setShowCreate(false);
-      setName("");
-      setTimeout(() => fetchVMs(), 3000);
+          server_type: providerSize,   // hetzner
+          size: providerSize,           // DO/AWS
+          location: providerRegion,     // hetzner
+          region: providerRegion,       // DO/AWS
+          image: osImage === "ubuntu-22.04" ? (provider === "digitalocean" ? "ubuntu-22-04-x64" : "ubuntu-22.04") : osImage,
+        },
+      });
+
+      // 3. Update local row with provider response
+      const status = result.ok ? "running" : "failed";
+      await supabase
+        .from("virtual_machines")
+        .update({
+          status,
+          ip_address: result.ip_address ?? null,
+          provider_resource_id: result.provider_resource_id ?? null,
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq("id", (row as VM).id);
+
+      if (result.ok) toast.success(`Provisioned on ${provider}: ${result.ip_address ?? "(no IP yet)"}`);
+      else toast.error(`Provider error: ${result.message ?? "see Operations log"}`);
+
+      setShowCreate(false); setName("");
       fetchVMs();
-    } catch {
-      toast.error("Failed to create instance");
+    } catch (e) {
+      toast.error((e as Error).message ?? "Failed to create instance");
     }
     setCreating(false);
   };
 
   const toggleVM = async (vm: VM) => {
-    const newStatus = vm.status === "running" ? "stopped" : "running";
-    try {
-      if (!organization?.id) throw new Error("Organization context missing");
-      await updateComputeStatus(
-        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
-        vm.id,
-        newStatus
-      );
-      toast.success(newStatus === "running" ? "Instance starting…" : "Instance stopping…");
-      fetchVMs();
-    } catch {
-      toast.error("Action failed");
-    }
+    const action = vm.status === "running" ? "stop" : "start";
+    const next = action === "start" ? "starting" : "stopping";
+    await supabase.from("virtual_machines").update({ status: next } as never).eq("id", vm.id);
+    fetchVMs();
+
+    const result = await provision({
+      action: action as "start" | "stop",
+      resource_type: "compute",
+      provider: vm.provider as Provider,
+      resource_id: vm.id,
+      payload: { provider_resource_id: vm.provider_resource_id ?? "" },
+    });
+
+    await supabase
+      .from("virtual_machines")
+      .update({ status: result.ok ? (action === "start" ? "running" : "stopped") : vm.status } as never)
+      .eq("id", vm.id);
+    if (!result.ok) toast.error(result.message ?? "Action failed");
+    else toast.success(`Instance ${action}ed`);
+    fetchVMs();
   };
 
   const deleteVM = async (vm: VM) => {
-    try {
-      if (!organization?.id) throw new Error("Organization context missing");
-      await deleteComputeInstance(
-        { userId: user!.id, orgId: organization.id, projectId: project?.id ?? null },
-        vm.id
-      );
-      toast.success("Instance terminated");
-      fetchVMs();
-    } catch {
-      toast.error("Failed to terminate");
+    if (!confirm(`Terminate ${vm.name}? This cannot be undone.`)) return;
+    if (vm.provider_resource_id) {
+      const result = await provision({
+        action: "delete",
+        resource_type: "compute",
+        provider: vm.provider as Provider,
+        resource_id: vm.id,
+        payload: { provider_resource_id: vm.provider_resource_id },
+      });
+      if (!result.ok) {
+        toast.error(`Provider delete failed: ${result.message}. Removing local record only.`);
+      }
     }
+    await supabase.from("virtual_machines").delete().eq("id", vm.id);
+    toast.success("Instance terminated");
+    fetchVMs();
   };
 
   if (loading || workspaceLoading || !user) {
@@ -201,6 +253,27 @@ const Compute = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Provider */}
+              <div>
+                <label className="text-sm text-muted-foreground block mb-2">Cloud Provider</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {PROVIDERS.map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => setProvider(p.value)}
+                      className={`rounded-lg border p-3 text-left text-sm transition-all ${
+                        provider === p.value
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-card text-muted-foreground hover:border-primary/30"
+                      }`}
+                    >
+                      <div className="font-medium">{p.label}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{p.hint}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Name */}
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">Instance Name</label>

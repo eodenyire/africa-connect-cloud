@@ -1,9 +1,19 @@
-import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Copy, Terminal, CheckCircle2, Loader2 } from "lucide-react";
+import { Copy, Terminal } from "lucide-react";
 import { toast } from "sonner";
+import { XTerminal } from "@/components/XTerminal";
+
+const RELAY_URL = (import.meta.env.VITE_TERMINAL_RELAY_URL as string | undefined) ?? "";
+const buildWsUrl = (t: ConnectTarget) => {
+  if (!RELAY_URL) return undefined;
+  // Relay convention: wss://relay/ssh?host=IP  or  wss://relay/db?dsn=...
+  const base = RELAY_URL.replace(/\/$/, "");
+  if (t.kind === "compute") return `${base}/ssh?host=${encodeURIComponent(t.ip ?? "")}&user=root`;
+  const dsn = t.connectionString ?? "";
+  return `${base}/db?engine=${encodeURIComponent(t.engine ?? "postgres")}&dsn=${encodeURIComponent(dsn)}`;
+};
 
 export type ConnectTarget = {
   kind: "compute" | "database";
@@ -31,63 +41,6 @@ const buildDbCommand = (t: ConnectTarget) => {
   return `psql "postgresql://acuser:********@${host}:${t.port ?? 5432}/${t.name}?sslmode=require"`;
 };
 
-const computeBootSequence = (t: ConnectTarget): Line[] => [
-  { text: `$ ${buildSshCommand(t)}`, tone: "prompt" },
-  { text: `Resolving ${t.ip ?? "host"} via Africa Cloud edge router (${t.region})...`, tone: "muted" },
-  { text: `Negotiating SSH-2.0 handshake... ed25519 fingerprint verified ✓`, tone: "ok" },
-  { text: `Authenticated using publickey (acctl-managed)`, tone: "ok" },
-  { text: ``, },
-  { text: `Welcome to ${t.os ?? "Ubuntu 22.04 LTS"} (GNU/Linux 6.5.0-ac-cloud x86_64)`, tone: "muted" },
-  { text: ` * Africa Cloud control plane: connected`, tone: "muted" },
-  { text: ` * Region: ${t.region}   Zone: ${t.region}-a`, tone: "muted" },
-  { text: ` * Last login: just now from 102.68.14.22`, tone: "muted" },
-  { text: ``, },
-  { text: `root@${t.name}:~# uname -a`, tone: "prompt" },
-  { text: `Linux ${t.name} 6.5.0-ac-cloud #1 SMP x86_64 GNU/Linux`, tone: "muted" },
-  { text: `root@${t.name}:~# systemctl is-system-running`, tone: "prompt" },
-  { text: `running`, tone: "ok" },
-  { text: `root@${t.name}:~# _`, tone: "prompt" },
-];
-
-const dbBootSequence = (t: ConnectTarget): Line[] => {
-  const host = `${t.name}.${t.region}.ac-db.africa`;
-  if (t.engine === "redis") {
-    return [
-      { text: `$ ${buildDbCommand(t)}`, tone: "prompt" },
-      { text: `Connecting to ${host}:${t.port ?? 6379}...`, tone: "muted" },
-      { text: `TLS handshake complete ✓`, tone: "ok" },
-      { text: `${host}:${t.port ?? 6379}> PING`, tone: "prompt" },
-      { text: `PONG`, tone: "ok" },
-      { text: `${host}:${t.port ?? 6379}> INFO server`, tone: "prompt" },
-      { text: `redis_version:7.2.4`, tone: "muted" },
-      { text: `os:Linux 6.5.0-ac-cloud x86_64`, tone: "muted" },
-      { text: `${host}:${t.port ?? 6379}> _`, tone: "prompt" },
-    ];
-  }
-  if (t.engine === "mongodb") {
-    return [
-      { text: `$ ${buildDbCommand(t)}`, tone: "prompt" },
-      { text: `Connecting to mongodb://${host}:${t.port ?? 27017}/${t.name}`, tone: "muted" },
-      { text: `Using MongoDB: 7.0.4   Mongosh: 2.1.1`, tone: "muted" },
-      { text: `Authenticated as acuser ✓`, tone: "ok" },
-      { text: `${t.name}> db.runCommand({ ping: 1 })`, tone: "prompt" },
-      { text: `{ ok: 1 }`, tone: "ok" },
-      { text: `${t.name}> _`, tone: "prompt" },
-    ];
-  }
-  return [
-    { text: `$ ${buildDbCommand(t)}`, tone: "prompt" },
-    { text: `Connecting to ${host}:${t.port ?? 5432} (sslmode=require)...`, tone: "muted" },
-    { text: `SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384) ✓`, tone: "ok" },
-    { text: `psql (16.1, server 16.1)`, tone: "muted" },
-    { text: `${t.name}=> SELECT version();`, tone: "prompt" },
-    { text: `PostgreSQL 16.1 on x86_64-africa-cloud, compiled by gcc`, tone: "muted" },
-    { text: `${t.name}=> SELECT now();`, tone: "prompt" },
-    { text: `${new Date().toISOString()}`, tone: "muted" },
-    { text: `${t.name}=> _`, tone: "prompt" },
-  ];
-};
-
 export const ConnectDialog = ({
   open,
   onOpenChange,
@@ -97,40 +50,12 @@ export const ConnectDialog = ({
   onOpenChange: (v: boolean) => void;
   target: ConnectTarget | null;
 }) => {
-  const [lines, setLines] = useState<Line[]>([]);
-  const [connected, setConnected] = useState(false);
-  const [latency, setLatency] = useState<number | null>(null);
-  const scrollerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open || !target) return;
-    let cancelled = false;
-    setLines([]);
-    setConnected(false);
-    setLatency(null);
-
-    const seq = target.kind === "compute" ? computeBootSequence(target) : dbBootSequence(target);
-
-    (async () => {
-      for (let i = 0; i < seq.length; i++) {
-        if (cancelled) return;
-        await sleep(180 + Math.random() * 220);
-        setLines((prev) => [...prev, seq[i]]);
-        if (scrollerRef.current) {
-          scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
-        }
-      }
-      if (cancelled) return;
-      setConnected(true);
-      setLatency(Math.floor(12 + Math.random() * 28));
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, target]);
-
   if (!target) return null;
+  const wsUrl = buildWsUrl(target);
+  const banner =
+    target.kind === "compute"
+      ? `Africa Cloud · ${target.region}\nVM: ${target.name} (${target.os ?? "linux"}) · ${target.ip ?? "no public IP"}`
+      : `Africa Cloud · ${target.region}\n${target.engine ?? "db"}: ${target.name} · port ${target.port ?? "?"}`;
 
   const command = target.kind === "compute" ? buildSshCommand(target) : buildDbCommand(target);
 
@@ -172,39 +97,7 @@ export const ConnectDialog = ({
           </TabsList>
 
           <TabsContent value="terminal" className="mt-4">
-            <div className="rounded-lg border border-border bg-[hsl(var(--background))] overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/40">
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/70" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-green-500/70" />
-                  <span className="ml-3 text-xs text-muted-foreground font-mono">
-                    {target.kind === "compute" ? `ssh • ${target.name}` : `${target.engine ?? "db"} • ${target.name}`}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  {connected ? (
-                    <span className="flex items-center gap-1 text-green-400">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Connected{latency !== null ? ` · ${latency}ms` : ""}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-primary">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Establishing session…
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div
-                ref={scrollerRef}
-                className="h-80 overflow-y-auto p-4 font-mono text-xs leading-relaxed"
-              >
-                {lines.map((l, i) => (
-                  <div key={i} className={toneClass(l.tone)}>
-                    {l.text || "\u00A0"}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <XTerminal wsUrl={wsUrl} banner={banner} />
             <div className="mt-3 flex items-center justify-between">
               <code className="text-xs text-muted-foreground font-mono truncate mr-2">{command}</code>
               <Button size="sm" variant="outline" onClick={() => copy(command, "Command")} className="gap-2 shrink-0">
