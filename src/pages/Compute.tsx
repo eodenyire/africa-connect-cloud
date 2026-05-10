@@ -253,6 +253,27 @@ const Compute = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Provider */}
+              <div>
+                <label className="text-sm text-muted-foreground block mb-2">Cloud Provider</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {PROVIDERS.map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => setProvider(p.value)}
+                      className={`rounded-lg border p-3 text-left text-sm transition-all ${
+                        provider === p.value
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-card text-muted-foreground hover:border-primary/30"
+                      }`}
+                    >
+                      <div className="font-medium">{p.label}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{p.hint}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Name */}
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">Instance Name</label>
