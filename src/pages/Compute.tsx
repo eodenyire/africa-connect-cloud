@@ -21,13 +21,13 @@ const PROVIDERS: { value: Provider; label: string; hint: string }[] = [
 ];
 
 // Map our AC machine types to provider-specific sizes
-const PROVIDER_SIZE: Record<Provider, Record<string, string>> = {
+const PROVIDER_SIZE: Partial<Record<Provider, Record<string, string>>> = {
   hetzner:      { "ac-standard-1": "cx22", "ac-standard-2": "cx32", "ac-standard-4": "cx42", "ac-compute-8": "ccx13", "ac-compute-16": "ccx23" },
   digitalocean: { "ac-standard-1": "s-1vcpu-2gb", "ac-standard-2": "s-2vcpu-4gb", "ac-standard-4": "s-4vcpu-8gb", "ac-compute-8": "c-8", "ac-compute-16": "c-16" },
   aws:          { "ac-standard-1": "t3.small", "ac-standard-2": "t3.medium", "ac-standard-4": "t3.large", "ac-compute-8": "c6i.2xlarge", "ac-compute-16": "c6i.4xlarge" },
 };
 
-const PROVIDER_REGION: Record<Provider, Record<string, string>> = {
+const PROVIDER_REGION: Partial<Record<Provider, Record<string, string>>> = {
   hetzner:      { nairobi: "nbg1", lagos: "fsn1", "cape-town": "hel1", cairo: "nbg1", accra: "fsn1", kigali: "hel1" },
   digitalocean: { nairobi: "fra1", lagos: "lon1", "cape-town": "lon1", cairo: "fra1", accra: "lon1", kigali: "fra1" },
   aws:          { nairobi: "af-south-1", lagos: "af-south-1", "cape-town": "af-south-1", cairo: "eu-south-1", accra: "eu-west-1", kigali: "eu-central-1" },
@@ -65,19 +65,6 @@ const STATUS_COLORS: Record<string, string> = {
   terminating: "text-destructive bg-destructive/10",
 };
 
-type VM = {
-  id: string;
-  name: string;
-  region: string;
-  machine_type: string;
-  vcpus: number;
-  ram_gb: number;
-  disk_gb: number;
-  os_image: string;
-  status: string;
-  ip_address: string | null;
-  created_at: string | null;
-};
 
 type VM = {
   id: string;
