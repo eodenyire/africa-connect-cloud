@@ -65,6 +65,21 @@ const STATUS_COLORS: Record<string, string> = {
   terminating: "text-destructive bg-destructive/10",
 };
 
+type VM = {
+  id: string;
+  name: string;
+  region: string;
+  machine_type: string;
+  vcpus: number;
+  ram_gb: number;
+  disk_gb: number;
+  os_image: string;
+  status: string;
+  ip_address: string | null;
+  created_at: string | null;
+  provider: string;
+  provider_resource_id: string | null;
+};
 
 type VM = {
   id: string;
@@ -129,8 +144,8 @@ const Compute = () => {
     if (!organization?.id) { toast.error("Workspace not ready"); return; }
     setCreating(true);
     const machine = MACHINE_TYPES.find((m) => m.value === machineType)!;
-    const providerSize = PROVIDER_SIZE[provider][machineType];
-    const providerRegion = PROVIDER_REGION[provider][region];
+    const providerSize = PROVIDER_SIZE[provider]?.[machineType] ?? machineType;
+    const providerRegion = PROVIDER_REGION[provider]?.[region] ?? region;
 
     try {
       // 1. Insert local row in 'provisioning' state so UI updates instantly
