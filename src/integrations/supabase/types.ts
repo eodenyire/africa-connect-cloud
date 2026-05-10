@@ -23,6 +23,8 @@ export type Database = {
           name: string
           plan: string
           port: number | null
+          provider: string
+          provider_resource_id: string | null
           region: string
           status: string
           storage_gb: number
@@ -38,6 +40,8 @@ export type Database = {
           name: string
           plan?: string
           port?: number | null
+          provider?: string
+          provider_resource_id?: string | null
           region?: string
           status?: string
           storage_gb?: number
@@ -53,6 +57,8 @@ export type Database = {
           name?: string
           plan?: string
           port?: number | null
+          provider?: string
+          provider_resource_id?: string | null
           region?: string
           status?: string
           storage_gb?: number
@@ -67,6 +73,8 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          provider: string
+          provider_resource_id: string | null
           record_type: string
           status: string
           ttl: number
@@ -79,6 +87,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           name: string
+          provider?: string
+          provider_resource_id?: string | null
           record_type?: string
           status?: string
           ttl?: number
@@ -91,6 +101,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string
+          provider?: string
+          provider_resource_id?: string | null
           record_type?: string
           status?: string
           ttl?: number
@@ -110,6 +122,8 @@ export type Database = {
           last_sync_at: string | null
           name: string
           node_type: string
+          provider: string
+          provider_resource_id: string | null
           ram_gb: number
           region: string
           status: string
@@ -127,6 +141,8 @@ export type Database = {
           last_sync_at?: string | null
           name: string
           node_type?: string
+          provider?: string
+          provider_resource_id?: string | null
           ram_gb?: number
           region?: string
           status?: string
@@ -144,6 +160,8 @@ export type Database = {
           last_sync_at?: string | null
           name?: string
           node_type?: string
+          provider?: string
+          provider_resource_id?: string | null
           ram_gb?: number
           region?: string
           status?: string
@@ -164,6 +182,8 @@ export type Database = {
           name: string
           port: number
           protocol: string
+          provider: string
+          provider_resource_id: string | null
           region: string
           status: string
           target_count: number
@@ -178,6 +198,8 @@ export type Database = {
           name: string
           port?: number
           protocol?: string
+          provider?: string
+          provider_resource_id?: string | null
           region?: string
           status?: string
           target_count?: number
@@ -192,6 +214,8 @@ export type Database = {
           name?: string
           port?: number
           protocol?: string
+          provider?: string
+          provider_resource_id?: string | null
           region?: string
           status?: string
           target_count?: number
@@ -230,12 +254,120 @@ export type Database = {
         }
         Relationships: []
       }
+      provider_credentials: {
+        Row: {
+          created_at: string
+          default_region: string | null
+          display_name: string
+          id: string
+          is_default: boolean
+          provider: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_region?: string | null
+          display_name: string
+          id?: string
+          is_default?: boolean
+          provider: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_region?: string | null
+          display_name?: string
+          id?: string
+          is_default?: boolean
+          provider?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      resource_operations: {
+        Row: {
+          action: string
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          provider: string
+          request: Json
+          resource_id: string | null
+          resource_type: string
+          response: Json
+          started_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          provider: string
+          request?: Json
+          resource_id?: string | null
+          resource_type: string
+          response?: Json
+          started_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          provider?: string
+          request?: Json
+          resource_id?: string | null
+          resource_type?: string
+          response?: Json
+          started_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ssh_keys: {
+        Row: {
+          created_at: string
+          fingerprint: string | null
+          id: string
+          name: string
+          public_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fingerprint?: string | null
+          id?: string
+          name: string
+          public_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fingerprint?: string | null
+          id?: string
+          name?: string
+          public_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       storage_buckets: {
         Row: {
           created_at: string | null
+          endpoint_url: string | null
           id: string
           name: string
           object_count: number
+          provider: string
+          provider_resource_id: string | null
           region: string
           size_bytes: number
           status: string
@@ -246,9 +378,12 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          endpoint_url?: string | null
           id?: string
           name: string
           object_count?: number
+          provider?: string
+          provider_resource_id?: string | null
           region?: string
           size_bytes?: number
           status?: string
@@ -259,9 +394,12 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          endpoint_url?: string | null
           id?: string
           name?: string
           object_count?: number
+          provider?: string
+          provider_resource_id?: string | null
           region?: string
           size_bytes?: number
           status?: string
@@ -319,8 +457,11 @@ export type Database = {
           machine_type: string
           name: string
           os_image: string
+          provider: string
+          provider_resource_id: string | null
           ram_gb: number
           region: string
+          ssh_key_id: string | null
           status: string
           updated_at: string | null
           user_id: string
@@ -334,8 +475,11 @@ export type Database = {
           machine_type?: string
           name: string
           os_image?: string
+          provider?: string
+          provider_resource_id?: string | null
           ram_gb?: number
           region?: string
+          ssh_key_id?: string | null
           status?: string
           updated_at?: string | null
           user_id: string
@@ -349,8 +493,11 @@ export type Database = {
           machine_type?: string
           name?: string
           os_image?: string
+          provider?: string
+          provider_resource_id?: string | null
           ram_gb?: number
           region?: string
+          ssh_key_id?: string | null
           status?: string
           updated_at?: string | null
           user_id?: string
@@ -364,6 +511,8 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          provider: string
+          provider_resource_id: string | null
           region: string
           status: string
           subnet_count: number
@@ -375,6 +524,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           name: string
+          provider?: string
+          provider_resource_id?: string | null
           region?: string
           status?: string
           subnet_count?: number
@@ -386,6 +537,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string
+          provider?: string
+          provider_resource_id?: string | null
           region?: string
           status?: string
           subnet_count?: number
