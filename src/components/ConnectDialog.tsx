@@ -5,10 +5,11 @@ import { Copy, Terminal, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { XTerminal } from "@/components/XTerminal";
-import { getRelayUrl } from "@/lib/terminalRelay";
+import { getRelayUrlForRoute } from "@/lib/terminalRelay";
 
 const buildWsUrl = (t: ConnectTarget) => {
-  const relay = getRelayUrl();
+  const route = t.kind === "compute" ? "ssh" : "db";
+  const relay = getRelayUrlForRoute(route);
   if (!relay) return undefined;
   const base = relay.replace(/\/$/, "");
   if (t.kind === "compute") return `${base}/ssh?host=${encodeURIComponent(t.ip ?? "")}&user=root`;
