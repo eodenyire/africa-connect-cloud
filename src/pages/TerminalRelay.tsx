@@ -28,7 +28,7 @@ const TerminalRelayPage = () => {
     setUrl(c?.url ?? "");
   }, []);
 
-  const slug = (organization?.slug as string | undefined) ?? profile?.org_name ?? "workspace";
+  const slug = ((organization as unknown as { slug?: string } | null)?.slug) ?? profile?.org_name ?? "workspace";
   const suggestion = useMemo(() => suggestRelayUrl(slug), [slug]);
 
   const validated = !!cfg?.validatedAt;
@@ -63,8 +63,9 @@ const TerminalRelayPage = () => {
         toast.success(`Reachable in ${result.latencyMs}ms`);
       }
     } else {
-      setLastError(result.error);
-      toast.error(`Relay unreachable: ${result.error}`);
+      const err = result.error;
+      setLastError(err);
+      toast.error(`Relay unreachable: ${err}`);
     }
   };
 
