@@ -103,14 +103,16 @@ export const ConnectDialog = ({
               <div className="mb-3 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
                 <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                 <div className="flex-1 text-xs">
-                  <p className="text-foreground font-medium">Terminal relay not configured</p>
+                  <p className="text-foreground font-medium">
+                    Ruta <code className="font-mono">/{target.kind === "compute" ? "ssh" : "db"}</code> del relay no validada
+                  </p>
                   <p className="text-muted-foreground">
-                    Live Connect sessions require a validated WebSocket relay.
+                    Connect requiere que la ruta correspondiente del relay WebSocket pase la prueba de conectividad.
                   </p>
                 </div>
                 <Button asChild size="sm" variant="outline">
                   <Link to="/console/terminal-relay" onClick={() => onOpenChange(false)}>
-                    Set up relay
+                    Configurar relay
                   </Link>
                 </Button>
               </div>
