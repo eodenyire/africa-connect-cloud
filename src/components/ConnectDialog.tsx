@@ -1,15 +1,16 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Copy, Terminal } from "lucide-react";
+import { Copy, Terminal, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import { XTerminal } from "@/components/XTerminal";
+import { getRelayUrl } from "@/lib/terminalRelay";
 
-const RELAY_URL = (import.meta.env.VITE_TERMINAL_RELAY_URL as string | undefined) ?? "";
 const buildWsUrl = (t: ConnectTarget) => {
-  if (!RELAY_URL) return undefined;
-  // Relay convention: wss://relay/ssh?host=IP  or  wss://relay/db?dsn=...
-  const base = RELAY_URL.replace(/\/$/, "");
+  const relay = getRelayUrl();
+  if (!relay) return undefined;
+  const base = relay.replace(/\/$/, "");
   if (t.kind === "compute") return `${base}/ssh?host=${encodeURIComponent(t.ip ?? "")}&user=root`;
   const dsn = t.connectionString ?? "";
   return `${base}/db?engine=${encodeURIComponent(t.engine ?? "postgres")}&dsn=${encodeURIComponent(dsn)}`;
