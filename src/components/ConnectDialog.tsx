@@ -98,6 +98,22 @@ export const ConnectDialog = ({
           </TabsList>
 
           <TabsContent value="terminal" className="mt-4">
+            {!wsUrl && (
+              <div className="mb-3 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+                <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <div className="flex-1 text-xs">
+                  <p className="text-foreground font-medium">Terminal relay not configured</p>
+                  <p className="text-muted-foreground">
+                    Live Connect sessions require a validated WebSocket relay.
+                  </p>
+                </div>
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/console/terminal-relay" onClick={() => onOpenChange(false)}>
+                    Set up relay
+                  </Link>
+                </Button>
+              </div>
+            )}
             <XTerminal wsUrl={wsUrl} banner={banner} />
             <div className="mt-3 flex items-center justify-between">
               <code className="text-xs text-muted-foreground font-mono truncate mr-2">{command}</code>
