@@ -63,7 +63,7 @@ const TerminalRelayPage = () => {
         toast.success(`Reachable in ${result.latencyMs}ms`);
       }
     } else {
-      const err = result.error;
+      const err = (result as { ok: false; error: string }).error;
       setLastError(err);
       toast.error(`Relay unreachable: ${err}`);
     }
