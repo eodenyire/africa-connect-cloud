@@ -229,9 +229,10 @@ const TerminalRelayPage = () => {
               </div>
 
               <div className="rounded-md bg-secondary/50 p-3 text-xs text-muted-foreground">
-                <strong className="text-foreground">Health check:</strong> the relay must respond
-                to a WebSocket upgrade on <code className="font-mono">/health</code>. Validation
-                opens that endpoint and closes immediately.
+                <strong className="text-foreground">Rutas requeridas:</strong> el relay debe aceptar
+                upgrades WebSocket en <code className="font-mono">/health</code>,{" "}
+                <code className="font-mono">/ssh</code> y <code className="font-mono">/db</code>.
+                Cada una se prueba por separado y desbloquea el botón Connect correspondiente.
               </div>
             </Card>
           </TabsContent>
