@@ -22,6 +22,7 @@ import Observability from "./pages/Observability.tsx";
 import Settings from "./pages/Settings.tsx";
 import Providers from "./pages/Providers.tsx";
 import Operations from "./pages/Operations.tsx";
+import TerminalRelay from "./pages/TerminalRelay.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/console/settings" element={<Settings />} />
             <Route path="/console/providers" element={<Providers />} />
             <Route path="/console/operations" element={<Operations />} />
+            <Route path="/console/terminal-relay" element={<TerminalRelay />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

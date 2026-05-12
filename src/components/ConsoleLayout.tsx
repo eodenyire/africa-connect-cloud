@@ -4,7 +4,7 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import {
   Cloud, Server, Database, HardDrive, Globe, Shield,
   BarChart3, LogOut, Network, FileCode, Receipt, KeyRound,
-  BookOpenCheck, Settings, Activity, ChevronLeft, Menu, X, Plug, ListChecks,
+  BookOpenCheck, Settings, Activity, ChevronLeft, Menu, X, Plug, ListChecks, Terminal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { icon: Network, label: "Networking", href: "/console/networking" },
   { icon: ListChecks, label: "Operations", href: "/console/operations" },
   { icon: Plug, label: "Providers", href: "/console/providers" },
+  { icon: Terminal, label: "Terminal Relay", href: "/console/terminal-relay" },
   { icon: Shield, label: "IAM", href: "/console/iam" },
   { icon: FileCode, label: "IaC Studio", href: "/console/iac" },
   { icon: KeyRound, label: "Developers", href: "/console/developers" },
