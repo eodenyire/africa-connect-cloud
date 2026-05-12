@@ -6,21 +6,27 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Terminal, ShieldCheck, ShieldAlert, Loader2, Copy, RefreshCw, Trash2, Wand2,
+  Terminal, ShieldCheck, ShieldAlert, Loader2, Copy, Trash2, Wand2,
+  Server, Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import {
-  loadRelayConfig, saveRelayConfig, clearRelayConfig, validateRelay, suggestRelayUrl,
-  type RelayConfig,
+  loadRelayConfig, clearRelayConfig, suggestRelayUrl, validateAndPersistRoute,
+  ROUTE_PATHS, type RelayConfig, type RelayRoute,
 } from "@/lib/terminalRelay";
+
+const ROUTE_META: { route: RelayRoute; label: string; description: string; icon: typeof Server }[] = [
+  { route: "health", label: "Health", description: "Base liveness probe", icon: ShieldCheck },
+  { route: "ssh", label: "SSH", description: "Required to Connect to compute instances", icon: Server },
+  { route: "db", label: "DB", description: "Required to Connect to managed databases", icon: Database },
+];
 
 const TerminalRelayPage = () => {
   const { organization, profile } = useWorkspace();
   const [cfg, setCfg] = useState<RelayConfig | null>(null);
   const [url, setUrl] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [lastError, setLastError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<RelayRoute | "all" | null>(null);
 
   useEffect(() => {
     const c = loadRelayConfig();
@@ -31,50 +37,43 @@ const TerminalRelayPage = () => {
   const slug = ((organization as unknown as { slug?: string } | null)?.slug) ?? profile?.org_name ?? "workspace";
   const suggestion = useMemo(() => suggestRelayUrl(slug), [slug]);
 
-  const validated = !!cfg?.validatedAt;
+  const sshReady = !!cfg?.routes.ssh.validatedAt;
+  const dbReady = !!cfg?.routes.db.validatedAt;
+  const anyReady = sshReady || dbReady || !!cfg?.routes.health.validatedAt;
 
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`${label} copied`);
+    toast.success(`${label} copiado`);
   };
 
-  const generate = () => {
-    setUrl(suggestion);
-    setLastError(null);
+  const generate = () => setUrl(suggestion);
+
+  const runRoute = async (route: RelayRoute) => {
+    if (!url.trim()) { toast.error("Introduce primero la URL del relay"); return; }
+    setBusy(route);
+    const r = await validateAndPersistRoute(url.trim(), route);
+    setCfg(loadRelayConfig());
+    setBusy(null);
+    if (r.ok) toast.success(`${ROUTE_PATHS[route]} OK · ${r.latencyMs}ms`);
+    else toast.error(`${ROUTE_PATHS[route]} falló: ${(r as { ok: false; error: string }).error}`);
   };
 
-  const test = async (persistOnSuccess: boolean) => {
-    if (!url.trim()) { toast.error("Enter a relay URL first"); return; }
-    setBusy(true);
-    setLastError(null);
-    const result = await validateRelay(url.trim());
-    setBusy(false);
-    if (result.ok) {
-      const next: RelayConfig = {
-        url: url.trim(),
-        validatedAt: new Date().toISOString(),
-        latencyMs: result.latencyMs,
-      };
-      if (persistOnSuccess) {
-        saveRelayConfig(next);
-        setCfg(next);
-        toast.success(`Relay validated (${result.latencyMs}ms) — Connect enabled`);
-      } else {
-        toast.success(`Reachable in ${result.latencyMs}ms`);
-      }
-    } else {
-      const err = (result as { ok: false; error: string }).error;
-      setLastError(err);
-      toast.error(`Relay unreachable: ${err}`);
+  const runAll = async () => {
+    if (!url.trim()) { toast.error("Introduce primero la URL del relay"); return; }
+    setBusy("all");
+    for (const m of ROUTE_META) {
+      await validateAndPersistRoute(url.trim(), m.route);
     }
+    setCfg(loadRelayConfig());
+    setBusy(null);
+    toast.success("Pruebas de relay completadas");
   };
 
   const reset = () => {
     clearRelayConfig();
     setCfg(null);
     setUrl("");
-    setLastError(null);
-    toast.success("Relay configuration cleared");
+    toast.success("Configuración del relay borrada");
   };
 
   return (
@@ -85,40 +84,39 @@ const TerminalRelayPage = () => {
             <Terminal className="h-6 w-6 text-primary" /> Terminal relay
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Connect sessions stream raw bytes through a WebSocket relay you control. Provision the
-            relay once per workspace, validate connectivity, and live SSH / database consoles
-            unlock across the console.
+            Las sesiones Connect se transmiten a través de un relay WebSocket que tú controlas.
+            Cada ruta (<code className="font-mono">/ssh</code> y <code className="font-mono">/db</code>)
+            se prueba por separado: el botón Connect solo se habilita para los recursos cuya ruta
+            haya validado correctamente.
           </p>
         </div>
 
         {/* Status */}
         <Card className="p-5 flex items-center gap-4">
-          {validated ? (
+          {anyReady ? (
             <ShieldCheck className="h-8 w-8 text-primary shrink-0" />
           ) : (
             <ShieldAlert className="h-8 w-8 text-destructive shrink-0" />
           )}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-heading font-semibold text-foreground">
-                {validated ? "Relay active" : "Relay not configured"}
+                {anyReady ? "Relay configurado" : "Relay no configurado"}
               </span>
-              {validated && cfg?.latencyMs != null && (
-                <Badge variant="secondary" className="text-xs">{cfg.latencyMs}ms</Badge>
-              )}
+              <Badge variant={sshReady ? "default" : "secondary"} className="text-[10px]">
+                SSH {sshReady ? "✓" : "—"}
+              </Badge>
+              <Badge variant={dbReady ? "default" : "secondary"} className="text-[10px]">
+                DB {dbReady ? "✓" : "—"}
+              </Badge>
             </div>
-            <p className="text-xs text-muted-foreground truncate font-mono">
-              {cfg?.url ?? "No relay endpoint saved"}
+            <p className="text-xs text-muted-foreground truncate font-mono mt-1">
+              {cfg?.url ?? "Sin endpoint guardado"}
             </p>
-            {validated && (
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Last validated {new Date(cfg!.validatedAt!).toLocaleString()}
-              </p>
-            )}
           </div>
-          {validated && (
+          {cfg?.url && (
             <Button variant="ghost" size="sm" onClick={reset} className="gap-2">
-              <Trash2 className="h-4 w-4" /> Clear
+              <Trash2 className="h-4 w-4" /> Limpiar
             </Button>
           )}
         </Card>
@@ -126,15 +124,15 @@ const TerminalRelayPage = () => {
         {/* Setup wizard */}
         <Tabs defaultValue="configure">
           <TabsList className="grid grid-cols-2 w-full max-w-md">
-            <TabsTrigger value="configure">1. Configure</TabsTrigger>
-            <TabsTrigger value="install">2. Install relay</TabsTrigger>
+            <TabsTrigger value="configure">1. Configurar y probar</TabsTrigger>
+            <TabsTrigger value="install">2. Instalar relay</TabsTrigger>
           </TabsList>
 
           <TabsContent value="configure" className="mt-4">
-            <Card className="p-5 space-y-4">
+            <Card className="p-5 space-y-5">
               <div>
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Relay endpoint
+                  Endpoint del relay
                 </label>
                 <div className="flex gap-2 mt-1">
                   <Input
@@ -144,33 +142,69 @@ const TerminalRelayPage = () => {
                     className="font-mono text-sm"
                   />
                   <Button variant="outline" onClick={generate} className="gap-2 shrink-0">
-                    <Wand2 className="h-4 w-4" /> Generate
+                    <Wand2 className="h-4 w-4" /> Generar
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Suggested: <code className="font-mono">{suggestion}</code>
+                  Sugerido: <code className="font-mono">{suggestion}</code>
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Button onClick={() => test(true)} disabled={busy} className="gap-2">
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                  Validate &amp; save
-                </Button>
-                <Button variant="outline" onClick={() => test(false)} disabled={busy} className="gap-2">
-                  <RefreshCw className="h-4 w-4" /> Test only
-                </Button>
+              {/* Per-route tests */}
+              <div className="space-y-2">
+                {ROUTE_META.map((m) => {
+                  const status = cfg?.routes[m.route];
+                  const ok = !!status?.validatedAt;
+                  const Icon = m.icon;
+                  const isBusy = busy === m.route || busy === "all";
+                  return (
+                    <div
+                      key={m.route}
+                      className="flex items-center gap-3 rounded-md border border-border bg-secondary/30 px-3 py-2"
+                    >
+                      <Icon className={`h-4 w-4 shrink-0 ${ok ? "text-primary" : "text-muted-foreground"}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground">{m.label}</span>
+                          <code className="text-[11px] font-mono text-muted-foreground">{ROUTE_PATHS[m.route]}</code>
+                          {ok && status?.latencyMs != null && (
+                            <Badge variant="secondary" className="text-[10px]">{status.latencyMs}ms</Badge>
+                          )}
+                          {ok ? (
+                            <Badge className="text-[10px]">OK</Badge>
+                          ) : status?.error ? (
+                            <Badge variant="destructive" className="text-[10px]">Fallo</Badge>
+                          ) : null}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {status?.error ?? m.description}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={ok ? "outline" : "default"}
+                        disabled={!!busy}
+                        onClick={() => runRoute(m.route)}
+                        className="gap-2 shrink-0"
+                      >
+                        {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                        {ok ? "Re-probar" : "Probar"}
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
 
-              {lastError && (
-                <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
-                  <strong>Validation failed:</strong> {lastError}
-                  <p className="text-muted-foreground mt-1">
-                    Confirm the relay is reachable from your browser, TLS is valid, and
-                    <code className="font-mono"> /health</code> accepts WebSocket upgrades.
-                  </p>
-                </div>
-              )}
+              <div className="flex items-center gap-2 pt-2 border-t border-border">
+                <Button onClick={runAll} disabled={!!busy} className="gap-2">
+                  {busy === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  Probar todas las rutas
+                </Button>
+                <p className="text-[11px] text-muted-foreground">
+                  Connect SSH se habilita con <code className="font-mono">/ssh</code>; Connect DB con
+                  <code className="font-mono"> /db</code>.
+                </p>
+              </div>
             </Card>
           </TabsContent>
 
