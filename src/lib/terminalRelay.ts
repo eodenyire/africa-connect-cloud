@@ -142,7 +142,7 @@ export const validateAndPersistRoute = async (
   cfg.url = url;
   cfg.routes[route] = result.ok
     ? { validatedAt: new Date().toISOString(), latencyMs: result.latencyMs, error: null }
-    : { validatedAt: null, latencyMs: null, error: result.error };
+    : { validatedAt: null, latencyMs: null, error: (result as { ok: false; error: string }).error };
   saveRelayConfig(cfg);
   return result;
 };
