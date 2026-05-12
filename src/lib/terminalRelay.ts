@@ -1,23 +1,49 @@
-// Terminal relay configuration & validation.
-// Stored per-browser in localStorage; ConnectDialog reads via getRelayUrl().
+// Terminal relay configuration & per-route validation.
+// Connect for a given resource kind (compute → /ssh, database → /db) is gated
+// on the matching route having passed validation.
 
 const KEY = "ac.terminal.relay";
 const ENV_URL = (import.meta.env.VITE_TERMINAL_RELAY_URL as string | undefined) ?? "";
 
+export type RelayRoute = "health" | "ssh" | "db";
+
+export type RouteStatus = {
+  validatedAt: string | null;
+  latencyMs: number | null;
+  error: string | null;
+};
+
 export type RelayConfig = {
   url: string;
-  validatedAt: string | null; // ISO timestamp of last successful handshake
-  latencyMs: number | null;
+  routes: Record<RelayRoute, RouteStatus>;
+};
+
+const emptyRoute = (): RouteStatus => ({ validatedAt: null, latencyMs: null, error: null });
+
+const blankConfig = (url: string): RelayConfig => ({
+  url,
+  routes: { health: emptyRoute(), ssh: emptyRoute(), db: emptyRoute() },
+});
+
+export const ROUTE_PATHS: Record<RelayRoute, string> = {
+  health: "/health",
+  ssh: "/ssh",
+  db: "/db",
 };
 
 export const loadRelayConfig = (): RelayConfig | null => {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as RelayConfig;
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<RelayConfig> & { url: string };
+      // Backfill missing route entries (older shape).
+      const base = blankConfig(parsed.url);
+      return { url: parsed.url, routes: { ...base.routes, ...(parsed.routes ?? {}) } };
+    }
   } catch {
     /* ignore */
   }
-  if (ENV_URL) return { url: ENV_URL, validatedAt: null, latencyMs: null };
+  if (ENV_URL) return blankConfig(ENV_URL);
   return null;
 };
 
@@ -27,11 +53,14 @@ export const saveRelayConfig = (cfg: RelayConfig) => {
 
 export const clearRelayConfig = () => localStorage.removeItem(KEY);
 
-/** Returns the validated relay URL, or undefined if not configured/validated. */
-export const getRelayUrl = (): string | undefined => {
+/** True when the route the kind needs has been validated. */
+export const isRouteReady = (cfg: RelayConfig | null, route: RelayRoute): boolean =>
+  !!cfg?.url && !!cfg.routes[route]?.validatedAt;
+
+/** Returns the relay base URL only when the route Connect needs is ready. */
+export const getRelayUrlForRoute = (route: RelayRoute): string | undefined => {
   const cfg = loadRelayConfig();
-  if (cfg?.url && cfg.validatedAt) return cfg.url;
-  return undefined;
+  return isRouteReady(cfg, route) ? cfg!.url : undefined;
 };
 
 /** Suggest a relay URL based on a workspace/org slug. */
@@ -45,10 +74,15 @@ export type ValidateResult =
   | { ok: false; error: string };
 
 /**
- * Open a WebSocket against the relay's `/health` (falling back to the base URL)
- * and resolve as soon as the connection opens. Times out after `timeoutMs`.
+ * Open a WebSocket handshake against `<relay>/<route-path>` and resolve as soon
+ * as the connection opens. Times out after `timeoutMs`. Used for /health, /ssh
+ * and /db separately so each Connect surface can be unlocked independently.
  */
-export const validateRelay = (rawUrl: string, timeoutMs = 6000): Promise<ValidateResult> =>
+export const validateRelay = (
+  rawUrl: string,
+  route: RelayRoute = "health",
+  timeoutMs = 6000,
+): Promise<ValidateResult> =>
   new Promise((resolve) => {
     let url: URL;
     try {
@@ -63,7 +97,8 @@ export const validateRelay = (rawUrl: string, timeoutMs = 6000): Promise<Validat
     }
 
     const probe = new URL(url.toString());
-    if (!probe.pathname || probe.pathname === "/") probe.pathname = "/health";
+    const base = probe.pathname.replace(/\/$/, "");
+    probe.pathname = `${base}${ROUTE_PATHS[route]}`;
 
     const started = performance.now();
     let settled = false;
@@ -75,7 +110,7 @@ export const validateRelay = (rawUrl: string, timeoutMs = 6000): Promise<Validat
       resolve(r);
     };
 
-    const timer = window.setTimeout(
+    const timer = (typeof window !== "undefined" ? window : globalThis).setTimeout(
       () => finish({ ok: false, error: `Timed out after ${timeoutMs}ms` }),
       timeoutMs,
     );
@@ -83,15 +118,31 @@ export const validateRelay = (rawUrl: string, timeoutMs = 6000): Promise<Validat
     try {
       ws = new WebSocket(probe.toString());
       ws.onopen = () => {
-        window.clearTimeout(timer);
+        clearTimeout(timer);
         finish({ ok: true, latencyMs: Math.round(performance.now() - started) });
       };
       ws.onerror = () => {
-        window.clearTimeout(timer);
-        finish({ ok: false, error: "Relay refused the WebSocket handshake" });
+        clearTimeout(timer);
+        finish({ ok: false, error: `Relay refused WebSocket upgrade on ${ROUTE_PATHS[route]}` });
       };
     } catch (e) {
-      window.clearTimeout(timer);
+      clearTimeout(timer);
       finish({ ok: false, error: (e as Error).message });
     }
   });
+
+/** Validate one route and persist the result into the saved config. */
+export const validateAndPersistRoute = async (
+  url: string,
+  route: RelayRoute,
+): Promise<ValidateResult> => {
+  const result = await validateRelay(url, route);
+  const existing = loadRelayConfig();
+  const cfg: RelayConfig = existing && existing.url === url ? existing : blankConfig(url);
+  cfg.url = url;
+  cfg.routes[route] = result.ok
+    ? { validatedAt: new Date().toISOString(), latencyMs: result.latencyMs, error: null }
+    : { validatedAt: null, latencyMs: null, error: (result as { ok: false; error: string }).error };
+  saveRelayConfig(cfg);
+  return result;
+};
