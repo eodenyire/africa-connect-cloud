@@ -228,6 +228,17 @@ const TerminalRelayPage = () => {
                 <CodeBlock onCopy={copy} text={`docker run -d --name ac-relay \\\n  -p 8443:8443 \\\n  -e AC_WORKSPACE=${slug} \\\n  -e AC_TLS_CERT=/certs/fullchain.pem \\\n  -e AC_TLS_KEY=/certs/privkey.pem \\\n  -v /etc/letsencrypt:/certs:ro \\\n  ghcr.io/africacloud/relay:latest`} />
               </div>
 
+              <div>
+                <h3 className="font-heading font-semibold text-sm text-foreground mb-2">
+                  Option C · Mock relay (para pruebas locales)
+                </h3>
+                <CodeBlock onCopy={copy} text={`# Implementa /health, /ssh y /db sobre WebSocket\nbun run relay:mock   # o: node scripts/mock-relay.mjs\n# luego usa este endpoint arriba:\nws://localhost:8787/ws`} />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Sirve para validar el flujo Connect end-to-end sin desplegar
+                  un relay real. No usar en producción.
+                </p>
+              </div>
+
               <div className="rounded-md bg-secondary/50 p-3 text-xs text-muted-foreground">
                 <strong className="text-foreground">Rutas requeridas:</strong> el relay debe aceptar
                 upgrades WebSocket en <code className="font-mono">/health</code>,{" "}
